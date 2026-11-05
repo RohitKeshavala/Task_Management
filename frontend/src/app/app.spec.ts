@@ -919,9 +919,9 @@ describe('App Component', () => {
       expect(app.isDueToday(taskToday)).toBe(true);
     });
 
-    it('should handle ISO timestamp format correctly', () => {
-      const pastIso = new Date(Date.now() - 3600000).toISOString();
-      const futureIso = new Date(Date.now() + 3600000).toISOString();
+    it('should handle ISO timestamp format correctly for past and future days', () => {
+      const pastIso = new Date(Date.now() - 86400000 * 2).toISOString();
+      const futureIso = new Date(Date.now() + 86400000 * 2).toISOString();
 
       const pastIsoTask: Task = {
         ...sampleTodoTask,
@@ -936,6 +936,17 @@ describe('App Component', () => {
 
       expect(app.isTaskOverdue(pastIsoTask)).toBe(true);
       expect(app.isTaskOverdue(futureIsoTask)).toBe(false);
+    });
+
+    it('should not mark ISO timestamp on today as overdue while today is ongoing', () => {
+      const todayIso = new Date().toISOString();
+      const todayIsoTask: Task = {
+        ...sampleTodoTask,
+        dueDate: todayIso,
+        status: 'TODO',
+      };
+      expect(app.isTaskOverdue(todayIsoTask)).toBe(false);
+      expect(app.isDueToday(todayIsoTask)).toBe(true);
     });
 
     it('should render .overdue-badge and .task-date-overdue in DOM when a task is overdue', () => {

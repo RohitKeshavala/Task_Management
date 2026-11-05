@@ -652,7 +652,16 @@ export class App implements OnInit {
       return false;
     }
 
-    return now.getTime() > parsed.getTime();
+    // If the due date falls on today in the user's local calendar,
+    // it is not overdue while today is ongoing.
+    const todayStr = formatDateToISO(now);
+    if (formatDateToISO(parsed) === todayStr) {
+      return false;
+    }
+
+    // Compare against the end of that local calendar day (23:59:59.999)
+    const endOfDay = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate(), 23, 59, 59, 999);
+    return now.getTime() > endOfDay.getTime();
   }
 
   isDueToday(task: Task): boolean {
