@@ -2,7 +2,10 @@ import { Component, OnInit, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TaskFlowService } from './services/taskflow.service';
-import { Project, Task, TaskPriority, TaskStatus, Tag } from './models/taskflow.model';
+import { Project, Task, TaskPriority, TaskStatus, Tag, UserRole, User } from './models/taskflow.model';
+import { ProfileComponent } from './components/profile/profile.component';
+import { AuthModalComponent } from './components/auth/auth-modal.component';
+import { UserManagementComponent } from './components/user-management/user-management.component';
 
 export interface CalendarCell {
   day: number;
@@ -43,12 +46,18 @@ export function formatDateToISO(d: Date): string {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ProfileComponent, AuthModalComponent, UserManagementComponent],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
 export class App implements OnInit {
   private service = inject(TaskFlowService);
+
+  // Active Role & Permission State
+  activeRole = this.service.activeRole;
+  canDeleteProject = computed(() => this.activeRole() === 'ADMIN');
+  canMutateTasks = computed(() => this.activeRole() !== 'VIEWER');
+  canCreateProject = computed(() => this.activeRole() !== 'VIEWER');
 
   // Dual theme state ('dark' | 'light')
   currentTheme = signal<'dark' | 'light'>('dark');
@@ -84,6 +93,12 @@ export class App implements OnInit {
   showNewTaskModal = signal<boolean>(false);
   showNewProjectModal = signal<boolean>(false);
   showDependencyModal = signal<boolean>(false);
+  showProfileModal = signal<boolean>(false);
+  showAuthModal = signal<boolean>(false);
+  showUserManagementModal = signal<boolean>(false);
+
+  currentUser = this.service.currentUser;
+  isAuthenticated = this.service.isAuthenticated;
 
   // Top Floating Notification State (replaces native alert)
   activeNotification = signal<AppNotification | null>(null);
@@ -226,6 +241,9 @@ export class App implements OnInit {
 
   ngOnInit(): void {
     this.initTheme();
+    if (!this.service.isAuthenticated()) {
+      this.showAuthModal.set(true);
+    }
     this.loadProjects();
     this.loadTags();
   }
@@ -354,7 +372,38 @@ export class App implements OnInit {
     this.loadTasks();
   }
 
+  openProfileModal(): void {
+    this.showProfileModal.set(true);
+  }
+
+  closeProfileModal(): void {
+    this.showProfileModal.set(false);
+  }
+
+  onRoleChange(newRole: UserRole): void {
+    this.service.setRole(newRole);
+    this.showNotification({
+      type: 'info',
+      title: 'Active Role Switched',
+      message: `Simulated role changed to ${newRole}. Route guards and UI permissions updated.`,
+      badgeText: 'ROLE CONTEXT',
+      icon: newRole === 'ADMIN' ? '👑' : newRole === 'MEMBER' ? '⚡' : '👁️',
+      durationMs: 3500,
+    });
+  }
+
   openNewTaskModal(): void {
+    if (!this.canMutateTasks()) {
+      this.showNotification({
+        type: 'warning',
+        title: 'Read-Only Mode',
+        message: 'VIEWER role cannot create new tasks.',
+        badgeText: 'RESTRICTION',
+        icon: '👁️',
+        durationMs: 3000,
+      });
+      return;
+    }
     this.selectedTagIds.set([]);
     this.selectedDependsOnTaskIds.set([]);
     this.newTagName.set('');
@@ -876,6 +925,17 @@ export class App implements OnInit {
   }
 
   openDeleteProjectConfirm(projectId?: string): void {
+    if (!this.canDeleteProject()) {
+      this.showNotification({
+        type: 'danger',
+        title: 'Permission Denied',
+        message: 'Only ADMIN role is authorized to delete projects.',
+        badgeText: 'RESTRICTION',
+        icon: '🛑',
+        durationMs: 4000,
+      });
+      return;
+    }
     const id = projectId || this.selectedProjectId();
     if (!id) return;
     const project = this.projects().find(p => p.id === id);
@@ -893,6 +953,17 @@ export class App implements OnInit {
   }
 
   openDeleteTaskConfirm(task: Task): void {
+    if (!this.canMutateTasks()) {
+      this.showNotification({
+        type: 'warning',
+        title: 'Read-Only Mode',
+        message: 'VIEWER role cannot delete tasks.',
+        badgeText: 'RESTRICTION',
+        icon: '👁️',
+        durationMs: 3000,
+      });
+      return;
+    }
     this.confirmDialog.set({
       type: 'task',
       id: task.id,
@@ -982,5 +1053,67 @@ export class App implements OnInit {
 
   deleteProject(id?: string): void {
     this.openDeleteProjectConfirm(id);
+  }
+
+  openAuthModal(): void {
+    this.showAuthModal.set(true);
+  }
+
+  closeAuthModal(): void {
+    this.showAuthModal.set(false);
+  }
+
+  onAuthenticated(user: User): void {
+    this.showAuthModal.set(false);
+    this.showNotification({
+      type: 'success',
+      title: 'Welcome Back',
+      message: `Signed in as ${user.username} (${user.role}).`,
+      icon: '✓',
+      durationMs: 4000
+    });
+    this.loadProjects();
+    this.loadTags();
+  }
+
+  openUserManagementModal(): void {
+    if (this.activeRole() !== 'ADMIN') {
+      this.showNotification({
+        type: 'danger',
+        title: 'Permission Denied',
+        message: 'Only administrators can access User Role Governance.',
+        icon: '⚠️',
+        durationMs: 5000
+      });
+      return;
+    }
+    this.showUserManagementModal.set(true);
+  }
+
+  closeUserManagementModal(): void {
+    this.showUserManagementModal.set(false);
+  }
+
+  handleLogout(): void {
+    this.service.logout();
+    this.showProfileModal.set(false);
+    this.showAuthModal.set(true);
+    this.showNotification({
+      type: 'info',
+      title: 'Signed Out',
+      message: 'You have been successfully logged out.',
+      icon: 'ℹ️',
+      durationMs: 4000
+    });
+  }
+
+  onUserRoleChanged(event: { userId: string; role: UserRole }): void {
+    this.showNotification({
+      type: 'success',
+      title: 'Role Updated',
+      message: `User permissions updated to ${event.role}.`,
+      icon: '✓',
+      durationMs: 3000
+    });
   }
 }

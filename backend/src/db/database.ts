@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 
 let dbInstance: Database.Database | null = null;
 
@@ -68,7 +69,20 @@ export function initDatabase(dbPath?: string): Database.Database {
       FOREIGN KEY (dependsOnTaskId) REFERENCES tasks(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+      email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+      passwordHash TEXT NOT NULL,
+      salt TEXT NOT NULL,
+      role TEXT NOT NULL CHECK(role IN ('ADMIN', 'MEMBER', 'VIEWER')) DEFAULT 'MEMBER',
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL
+    );
+
     CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_name_unique ON tags(name COLLATE NOCASE);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique ON users(username COLLATE NOCASE);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique ON users(email COLLATE NOCASE);
     CREATE INDEX IF NOT EXISTS idx_task_tags_taskId ON task_tags(taskId);
     CREATE INDEX IF NOT EXISTS idx_task_tags_tagId ON task_tags(tagId);
     CREATE INDEX IF NOT EXISTS idx_task_dependencies_taskId ON task_dependencies(taskId);
@@ -79,6 +93,18 @@ export function initDatabase(dbPath?: string): Database.Database {
   const projectCount = db.prepare('SELECT COUNT(*) as count FROM projects').get() as { count: number };
   if (projectCount.count === 0 && filePath !== ':memory:') {
     seedInitialData(db);
+  }
+
+  // Seed default admin user if not exists
+  const adminUser = db.prepare('SELECT id FROM users WHERE email = ? COLLATE NOCASE').get('admin@taskflow.dev');
+  if (!adminUser) {
+    const salt = 'taskflow_seed_admin_salt_2026';
+    const hash = crypto.scryptSync('Admin123!', salt, 64).toString('hex');
+    const now = new Date().toISOString();
+    db.prepare(`
+      INSERT INTO users (id, username, email, passwordHash, salt, role, createdAt, updatedAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run('user-admin-default', 'admin', 'admin@taskflow.dev', hash, salt, 'ADMIN', now, now);
   }
 
   dbInstance = db;

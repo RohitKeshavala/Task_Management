@@ -37,3 +37,28 @@ export class StatusGuardError extends AppError {
   }
 }
 
+export class ForbiddenError extends AppError {
+  constructor(message: string = 'User role is not authorized to perform this action', role?: string) {
+    super(message, 403, { error: 'Forbidden', ...(role ? { role } : {}) });
+    this.name = 'ForbiddenError';
+    Object.setPrototypeOf(this, ForbiddenError.prototype);
+  }
+}
+
+export class NotFoundError extends AppError {
+  constructor(message: string = 'Resource not found') {
+    super(message, 404, { error: 'Not Found' });
+    this.name = 'NotFoundError';
+    Object.setPrototypeOf(this, NotFoundError.prototype);
+  }
+}
+
+export class UnauthorizedError extends AppError {
+  constructor(message: string = 'Unauthorized') {
+    super(message, 401, { error: 'Unauthorized' });
+    this.name = 'UnauthorizedError';
+    Object.setPrototypeOf(this, UnauthorizedError.prototype);
+  }
+}
+
+

@@ -1,3 +1,6 @@
+export type UserRole = 'ADMIN' | 'MEMBER' | 'VIEWER';
+export const ALL_ROLES: readonly UserRole[] = ['ADMIN', 'MEMBER', 'VIEWER'] as const;
+
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH';
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE';
 
@@ -64,4 +67,29 @@ export interface UpdateTaskDto {
   dueDate?: string | null;
   tagIds?: string[];
   dependsOnTaskIds?: string[];
+}
+
+export interface User {
+  id: string;
+  username: string;
+  email: string;
+  role: UserRole;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AuthResponse {
+  user: User;
+  token: string;
+}
+
+export interface RegisterDto {
+  username: string;
+  email: string;
+  password: string;
+}
+
+export interface LoginDto {
+  email: string;
+  password: string;
 }

@@ -93,6 +93,114 @@
   flex-wrap: wrap;
 }
 
+/* Admin Manage Users Button */
+.btn-admin-manage {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 9999px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fbbf24;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  user-select: none;
+}
+
+.btn-admin-manage:hover {
+  background: rgba(245, 158, 11, 0.25);
+  border-color: rgba(245, 158, 11, 0.6);
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px -2px rgba(245, 158, 11, 0.45);
+}
+
+.btn-admin-manage:active {
+  transform: scale(0.96);
+}
+
+/* User Profile Trigger Button */
+.btn-profile-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 9999px;
+  background: rgba(30, 41, 59, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  color: #f1f5f9;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  user-select: none;
+}
+
+.btn-profile-trigger:hover {
+  background: #27354f;
+  border-color: rgba(99, 102, 241, 0.5);
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px -2px rgba(99, 102, 241, 0.35);
+}
+
+.btn-profile-trigger:active {
+  transform: scale(0.96);
+}
+
+.profile-avatar {
+  font-size: 0.95rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  white-space: nowrap;
+}
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transition: all 0.2s ease;
+}
+
+.role-badge-admin {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.38);
+  box-shadow: 0 0 8px -2px rgba(245, 158, 11, 0.3);
+}
+
+.role-badge-member {
+  background: rgba(16, 185, 129, 0.16);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.38);
+  box-shadow: 0 0 8px -2px rgba(16, 185, 129, 0.3);
+}
+
+.role-badge-viewer {
+  background: rgba(14, 165, 233, 0.16);
+  color: #38bdf8;
+  border: 1px solid rgba(14, 165, 233, 0.38);
+  box-shadow: 0 0 8px -2px rgba(14, 165, 233, 0.3);
+}
+
 /* Theme Toggle Button (Tactile Pill & Rotating Icon) */
 .btn-theme-toggle {
   display: inline-flex;
@@ -217,11 +325,22 @@
   transition: all 0.18s ease;
 }
 
-.btn-icon-danger:hover {
+.btn-icon-danger:hover:not(:disabled) {
   background: rgba(239, 68, 68, 0.25);
   border-color: rgba(239, 68, 68, 0.5);
   transform: scale(1.08);
   box-shadow: 0 0 10px rgba(239, 68, 68, 0.35);
+}
+
+.btn-icon-danger:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: auto;
+  transform: none;
+  box-shadow: none;
+  background: rgba(148, 163, 184, 0.08);
+  border-color: rgba(148, 163, 184, 0.15);
+  color: #64748b;
 }
 
 /* ==========================================================================

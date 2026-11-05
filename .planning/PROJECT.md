@@ -18,19 +18,22 @@ Deterministic role enforcement: protecting sensitive project and task operations
 - ✓ Directed acyclic graph (DAG) dependencies with BFS cycle prevention and status guards — existing
 - ✓ Full-stack Angular reactive UI with Kanban drag-and-drop — existing
 - ✓ Automated Vitest test suite with in-memory database isolation — existing
+- ✓ **Role Hierarchy Definition**: Support three explicit roles (`ADMIN`, `MEMBER`, `VIEWER`) — Phase 1
+- ✓ **Auth Middleware**: Middleware in `backend/src/middleware/` that extracts and validates the `x-user-role` request header, defaulting to `MEMBER` if omitted — Phase 1
+- ✓ **Route Permission Guards**: Enforce role permission checks across all project (`/api/projects`), task (`/api/tasks`), and tag (`/api/tags`) routes — Phase 1
+- ✓ **Permission Boundary Unit Tests**: Automated Vitest test suite verifying allowed and forbidden actions for `ADMIN`, `MEMBER`, and `VIEWER` roles — Phase 1
+- ✓ **Regression Safety**: All existing tests in `backend/tests/api.test.ts` and related test suites continue passing without regressions — Phase 1
+- ✓ **User Profile Component**: Dedicated standalone Angular component for the user profile page/modal with clean logic separation from `app.ts` — Phase 2
+- ✓ **Header Profile Trigger**: Header action/button to open the Profile component, view current user info/role, and switch active role for testing — Phase 2
+- ✓ **Role-Aware UI Interactions**: Disable or hide unauthorized actions (e.g. project delete for MEMBER, all edits/deletions for VIEWER) and inject active `x-user-role` header in HTTP requests — Phase 2
+- ✓ **User Authentication System**: SQLite `users` table, salted scrypt password hashing, registration (`/api/auth/register`), and login (`/api/auth/login`) with JWT tokens — Phase 3
+- ✓ **Frontend Auth Modal**: Standalone login/signup modal with validation, demo auto-fill, and unauthenticated workspace gating — Phase 3
+- ✓ **Admin User Role Governance UI**: Standalone modal visible only to `ADMIN` users to inspect accounts and reassign roles (`PUT /api/users/:id/role`) with demotion guard — Phase 3
+- ✓ **Profile Role Switcher Removal**: Removed client-side role switcher from profile, displaying authentic role and `Log Out` action — Phase 3
 
 ### Active
 
-- [ ] **Role Hierarchy Definition**: Support three explicit roles:
-  - `ADMIN`: Full access to all endpoints (all GET, POST, PUT, DELETE).
-  - `MEMBER`: Can create/update tasks and view projects, but CANNOT delete projects (403 Forbidden).
-  - `VIEWER`: Read-only access (GET only). Any POST/PUT/DELETE returns 403 Forbidden.
-- [ ] **Auth Middleware**: Middleware in `backend/src/middleware/` that extracts and validates the `x-user-role` request header, defaulting to `MEMBER` if omitted.
-- [ ] **Route Permission Guards**: Enforce role permission checks across all project (`/api/projects`) and task (`/api/tasks`) routes.
-- [ ] **User Profile Component**: Dedicated standalone Angular component for the user profile page/modal with clean logic separation from `app.ts`.
-- [ ] **Header Profile Trigger**: Header action/button to open the Profile component, view current user info/role, and switch active role for testing.
-- [ ] **Permission Boundary Unit Tests**: Automated Vitest test suite verifying allowed and forbidden actions for `ADMIN`, `MEMBER`, and `VIEWER` roles.
-- [ ] **Regression Safety**: All existing tests in `backend/tests/api.test.ts` and related test suites continue passing without regressions.
+*All milestone requirements delivered and validated.*
 
 ### Out of Scope
 
@@ -54,9 +57,9 @@ Deterministic role enforcement: protecting sensitive project and task operations
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| `x-user-role` header authentication | Provides immediate, testable RBAC without credential database overhead | — Pending |
-| Default role to `MEMBER` when header is missing | Preserves backward compatibility for existing tests and client calls | — Pending |
-| Dedicated Angular component for Profile | Enforces clean logic separation and addresses monolithic component tech debt in `app.ts` | — Pending |
+| `x-user-role` header authentication | Provides immediate, testable RBAC without credential database overhead | ✓ Implemented in Phase 1 |
+| Default role to `MEMBER` when header is missing | Preserves backward compatibility for existing tests and client calls | ✓ Implemented in Phase 1 |
+| Dedicated Angular component for Profile | Enforces clean logic separation and addresses monolithic component tech debt in `app.ts` | — Pending Phase 2 |
 
 ## Evolution
 
@@ -76,4 +79,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-11-05 after initialization*
+*Last updated: 2026-11-05 after Phase 1*

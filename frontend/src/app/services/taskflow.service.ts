@@ -1,7 +1,20 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { Project, Task, CreateProjectDto, CreateTaskDto, TaskStatus, Tag, CreateTagDto } from '../models/taskflow.model';
+import { Observable, tap } from 'rxjs';
+import {
+  Project,
+  Task,
+  CreateProjectDto,
+  CreateTaskDto,
+  TaskStatus,
+  Tag,
+  CreateTagDto,
+  UserRole,
+  User,
+  AuthResponse,
+  LoginDto,
+  RegisterDto,
+} from '../models/taskflow.model';
 
 @Injectable({
   providedIn: 'root'
@@ -9,6 +22,130 @@ import { Project, Task, CreateProjectDto, CreateTaskDto, TaskStatus, Tag, Create
 export class TaskFlowService {
   private http = inject(HttpClient);
   private apiUrl = 'http://localhost:3000/api';
+
+  private readonly ROLE_STORAGE_KEY = 'taskflow_active_role';
+  private readonly TOKEN_STORAGE_KEY = 'taskflow_auth_token';
+  private readonly USER_STORAGE_KEY = 'taskflow_auth_user';
+
+  authToken = signal<string | null>(this.getInitialToken());
+  currentUser = signal<User | null>(this.getInitialUser());
+  isAuthenticated = computed(() => this.currentUser() !== null);
+
+  /**
+   * Active user role (ADMIN, MEMBER, VIEWER).
+   * Synchronized with currentUser role, with fallback to stored role or MEMBER.
+   */
+  activeRole = signal<UserRole>(this.getInitialRole());
+
+  private getInitialToken(): string | null {
+    try {
+      return localStorage.getItem(this.TOKEN_STORAGE_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  private getInitialUser(): User | null {
+    try {
+      const raw = localStorage.getItem(this.USER_STORAGE_KEY);
+      if (raw) {
+        return JSON.parse(raw) as User;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
+  private getInitialRole(): UserRole {
+    try {
+      const user = this.getInitialUser();
+      if (user && user.role) {
+        return user.role;
+      }
+      const stored = localStorage.getItem(this.ROLE_STORAGE_KEY);
+      if (stored && (stored === 'ADMIN' || stored === 'MEMBER' || stored === 'VIEWER')) {
+        return stored as UserRole;
+      }
+    } catch {
+      // In SSR or restricted environments, fallback gracefully
+    }
+    return 'MEMBER';
+  }
+
+  /**
+   * Updates active simulated role and persists to localStorage.
+   */
+  setRole(role: UserRole): void {
+    this.activeRole.set(role);
+    try {
+      localStorage.setItem(this.ROLE_STORAGE_KEY, role);
+    } catch {
+      // Ignore localStorage write restrictions
+    }
+  }
+
+  // Authentication
+  register(dto: RegisterDto): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(`${this.apiUrl}/auth/register`, dto).pipe(
+      tap((res) => this.handleAuthSuccess(res))
+    );
+  }
+
+  login(dto: LoginDto): Observable<AuthResponse> {
+    return this.http.post<AuthResponse>(`${this.apiUrl}/auth/login`, dto).pipe(
+      tap((res) => this.handleAuthSuccess(res))
+    );
+  }
+
+  logout(): void {
+    this.authToken.set(null);
+    this.currentUser.set(null);
+    this.activeRole.set('MEMBER');
+    try {
+      localStorage.removeItem(this.TOKEN_STORAGE_KEY);
+      localStorage.removeItem(this.USER_STORAGE_KEY);
+      localStorage.removeItem(this.ROLE_STORAGE_KEY);
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  private handleAuthSuccess(res: AuthResponse): void {
+    this.authToken.set(res.token);
+    this.currentUser.set(res.user);
+    this.activeRole.set(res.user.role);
+    try {
+      localStorage.setItem(this.TOKEN_STORAGE_KEY, res.token);
+      localStorage.setItem(this.USER_STORAGE_KEY, JSON.stringify(res.user));
+      localStorage.setItem(this.ROLE_STORAGE_KEY, res.user.role);
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  // User Management (Admin Only)
+  getUsers(): Observable<User[]> {
+    return this.http.get<User[]>(`${this.apiUrl}/users`);
+  }
+
+  updateUserRole(userId: string, role: UserRole): Observable<User> {
+    return this.http.put<User>(`${this.apiUrl}/users/${userId}/role`, { role }).pipe(
+      tap((updatedUser) => {
+        // If current user had their role updated, synchronize currentUser state
+        if (this.currentUser()?.id === userId) {
+          const current = this.currentUser()!;
+          const updated = { ...current, role };
+          this.currentUser.set(updated);
+          this.activeRole.set(role);
+          try {
+            localStorage.setItem(this.USER_STORAGE_KEY, JSON.stringify(updated));
+            localStorage.setItem(this.ROLE_STORAGE_KEY, role);
+          } catch {}
+        }
+      })
+    );
+  }
 
   // Projects
   getProjects(): Observable<Project[]> {

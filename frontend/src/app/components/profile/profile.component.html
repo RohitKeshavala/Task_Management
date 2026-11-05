@@ -1,0 +1,90 @@
+<div 
+  class="profile-modal-backdrop" 
+  *ngIf="isOpen()" 
+  (click)="onBackdropClick($event)"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="profile-modal-title">
+
+  <div class="profile-modal-card">
+    <!-- Header with Title and Close Action -->
+    <div class="modal-header">
+      <div class="header-branding">
+        <span class="header-icon">🛡️</span>
+        <div>
+          <h2 id="profile-modal-title" class="modal-title">User Profile</h2>
+          <p class="modal-subtitle">Authenticated user account details and permissions</p>
+        </div>
+      </div>
+      <button 
+        type="button" 
+        class="modal-close-btn" 
+        (click)="onClose()" 
+        aria-label="Close Profile Dialog"
+        title="Close dialog (Esc)">
+        ✕
+      </button>
+    </div>
+
+    <!-- User Profile Overview Card -->
+    <div class="user-overview-section">
+      <div class="user-avatar-halo" aria-hidden="true">
+        <span class="avatar-emoji">{{ activeRole() === 'ADMIN' ? '👑' : (activeRole() === 'VIEWER' ? '👁️' : '👤') }}</span>
+        <span class="status-indicator-dot role-dot-{{ activeRole().toLowerCase() }}"></span>
+      </div>
+
+      <div class="user-details-body">
+        <div class="user-primary-row">
+          <h3 class="user-fullname">{{ displayName }}</h3>
+          <span class="active-role-pill role-pill-{{ activeRole().toLowerCase() }}">
+            {{ activeRole() }}
+          </span>
+        </div>
+        <p class="user-email-text">{{ displayEmail }}</p>
+        
+        <div class="user-meta-chips">
+          <span class="meta-chip">💼 Authenticated User</span>
+          <span class="meta-chip">📅 Member since {{ joinedDate }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Role Capabilities Summary (Read-Only) -->
+    <div class="role-summary-section">
+      <div class="section-title-wrap">
+        <h4 class="section-title">Assigned Permissions</h4>
+        <p class="section-desc">Your permissions are assigned and managed by workspace administrators:</p>
+      </div>
+
+      <div class="role-overview-box role-box-{{ activeRole().toLowerCase() }}">
+        <div class="box-header">
+          <span class="box-badge">{{ activeRole() }} PRIVILEGES</span>
+        </div>
+        <ul class="capabilities-list">
+          <li *ngFor="let cap of roleCapabilities" class="capability-item">
+            <span class="cap-check">✓</span>
+            <span class="cap-text">{{ cap }}</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Modal Footer Actions with Log Out -->
+    <div class="modal-footer">
+      <button 
+        type="button" 
+        class="btn-logout" 
+        (click)="onLogout()"
+        title="Sign out of current account">
+        <span class="logout-icon">🚪</span>
+        <span>Log Out</span>
+      </button>
+      <button 
+        type="button" 
+        class="btn-primary-close" 
+        (click)="onClose()">
+        Done
+      </button>
+    </div>
+  </div>
+</div>

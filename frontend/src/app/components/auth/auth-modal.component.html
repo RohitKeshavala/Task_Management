@@ -1,0 +1,114 @@
+<div class="modal-backdrop" *ngIf="isOpen()" (click)="onBackdropClick($event)">
+  <div class="auth-card" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+    <!-- Header with Branding Logo -->
+    <div class="auth-header">
+      <div class="brand-badge">
+        <span class="brand-icon">⚡</span>
+      </div>
+      <h2 id="auth-title" class="auth-title">
+        {{ isSignUp() ? 'Create Your Account' : 'Welcome to TaskFlow' }}
+      </h2>
+      <p class="auth-subtitle">
+        {{ isSignUp() ? 'Sign up to manage workflows with deterministic RBAC' : 'Sign in to access your workspace and projects' }}
+      </p>
+    </div>
+
+    <!-- Tab Selector -->
+    <div class="auth-tabs">
+      <button 
+        type="button" 
+        class="auth-tab" 
+        [class.active]="!isSignUp()" 
+        (click)="switchTab(false)">
+        Log In
+      </button>
+      <button 
+        type="button" 
+        class="auth-tab" 
+        [class.active]="isSignUp()" 
+        (click)="switchTab(true)">
+        Sign Up
+      </button>
+    </div>
+
+    <!-- Error Callout Banner -->
+    <div class="error-banner" *ngIf="errorMessage()">
+      <span class="error-icon">⚠️</span>
+      <span class="error-text">{{ errorMessage() }}</span>
+    </div>
+
+    <!-- Form -->
+    <form (ngSubmit)="onSubmit()" class="auth-form" autocomplete="on">
+      <!-- Username (Sign Up only) -->
+      <div class="form-group" *ngIf="isSignUp()">
+        <label for="auth-username" class="form-label">Username</label>
+        <div class="input-wrap">
+          <span class="input-icon">👤</span>
+          <input 
+            id="auth-username" 
+            type="text" 
+            class="form-input" 
+            placeholder="e.g. jsmith" 
+            [value]="username()" 
+            (input)="username.set($any($event.target).value)" 
+            required 
+            minlength="3" />
+        </div>
+      </div>
+
+      <!-- Email -->
+      <div class="form-group">
+        <label for="auth-email" class="form-label">Email Address</label>
+        <div class="input-wrap">
+          <span class="input-icon">✉️</span>
+          <input 
+            id="auth-email" 
+            type="email" 
+            class="form-input" 
+            placeholder="name@taskflow.dev" 
+            [value]="email()" 
+            (input)="email.set($any($event.target).value)" 
+            required />
+        </div>
+      </div>
+
+      <!-- Password -->
+      <div class="form-group">
+        <label for="auth-password" class="form-label">Password</label>
+        <div class="input-wrap">
+          <span class="input-icon">🔒</span>
+          <input 
+            id="auth-password" 
+            type="password" 
+            class="form-input" 
+            placeholder="••••••••" 
+            [value]="password()" 
+            (input)="password.set($any($event.target).value)" 
+            required 
+            minlength="6" />
+        </div>
+      </div>
+
+      <!-- Primary Action Submit Button -->
+      <button 
+        type="submit" 
+        class="btn-auth-submit" 
+        [disabled]="isLoading()">
+        <span *ngIf="!isLoading()">{{ isSignUp() ? 'Create Account' : 'Sign In' }}</span>
+        <span *ngIf="isLoading()">Authenticating...</span>
+      </button>
+    </form>
+
+    <!-- Quick Seed Admin Filler -->
+    <div class="demo-box" *ngIf="!isSignUp()">
+      <div class="demo-info">
+        <span class="demo-badge">QUICK DEMO</span>
+        <span class="demo-text">admin@taskflow.dev / Admin123!</span>
+      </div>
+      <button type="button" class="btn-demo-fill" (click)="useDemoAdmin()">
+        Auto-Fill Admin
+      </button>
+    </div>
+  </div>
+</div>
+

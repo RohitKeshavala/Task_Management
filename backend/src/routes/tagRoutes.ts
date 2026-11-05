@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { TagService } from '../services/tagService.js';
+import { requireRole } from '../middleware/auth.js';
 
 export const tagRouter = Router();
 
@@ -29,7 +30,7 @@ tagRouter.get('/:id', (req: Request, res: Response, next: NextFunction) => {
 });
 
 // POST create tag
-tagRouter.post('/', (req: Request, res: Response, next: NextFunction) => {
+tagRouter.post('/', requireRole(['ADMIN', 'MEMBER']), (req: Request, res: Response, next: NextFunction) => {
   try {
     const created = TagService.create(req.body);
     res.status(201).json(created);
@@ -39,7 +40,7 @@ tagRouter.post('/', (req: Request, res: Response, next: NextFunction) => {
 });
 
 // DELETE tag
-tagRouter.delete('/:id', (req: Request, res: Response, next: NextFunction) => {
+tagRouter.delete('/:id', requireRole(['ADMIN', 'MEMBER']), (req: Request, res: Response, next: NextFunction) => {
   try {
     const id = String(req.params.id);
     const deleted = TagService.delete(id);

@@ -1,0 +1,111 @@
+<div class="modal-backdrop" *ngIf="isOpen()" (click)="onBackdropClick($event)">
+  <div class="user-management-card" role="dialog" aria-modal="true" aria-labelledby="um-title">
+    <!-- Header -->
+    <div class="um-header">
+      <div class="header-left">
+        <span class="header-icon">👑</span>
+        <div>
+          <h3 id="um-title" class="um-title">User Role Governance</h3>
+          <p class="um-subtitle">Administrators can inspect registered accounts and modify access roles</p>
+        </div>
+      </div>
+      <button 
+        type="button" 
+        class="btn-close" 
+        (click)="close.emit()" 
+        aria-label="Close modal" 
+        title="Close">
+        ✕
+      </button>
+    </div>
+
+    <!-- Alert / Toast Messages -->
+    <div class="toast-banner toast-success" *ngIf="successMessage()">
+      <span class="toast-icon">✓</span>
+      <span>{{ successMessage() }}</span>
+    </div>
+
+    <div class="toast-banner toast-error" *ngIf="errorMessage()">
+      <span class="toast-icon">⚠️</span>
+      <span>{{ errorMessage() }}</span>
+    </div>
+
+    <!-- Controls Bar: Search & Refresh -->
+    <div class="um-controls">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input 
+          type="text" 
+          class="search-input" 
+          placeholder="Filter by name, email, or role..." 
+          [value]="searchQuery()" 
+          (input)="searchQuery.set($any($event.target).value)" />
+      </div>
+      <button type="button" class="btn-refresh" (click)="loadUsers()" [disabled]="isLoading()" title="Refresh users list">
+        {{ isLoading() ? 'Refreshing...' : '↻ Refresh' }}
+      </button>
+    </div>
+
+    <!-- Users Table -->
+    <div class="table-container">
+      <table class="users-table">
+        <thead>
+          <tr>
+            <th>User</th>
+            <th>Email</th>
+            <th>Joined</th>
+            <th>Current Role</th>
+            <th>Role Assignment</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let u of filteredUsers()" [class.row-admin]="u.role === 'ADMIN'">
+            <td>
+              <div class="user-cell">
+                <span class="avatar-circle">{{ u.role === 'ADMIN' ? '👑' : (u.role === 'VIEWER' ? '👁️' : '👤') }}</span>
+                <span class="username-text">{{ u.username }}</span>
+              </div>
+            </td>
+            <td>
+              <span class="email-text">{{ u.email }}</span>
+            </td>
+            <td>
+              <span class="date-text">{{ u.createdAt | date:'mediumDate' }}</span>
+            </td>
+            <td>
+              <span class="role-badge" [ngClass]="'role-badge-' + u.role.toLowerCase()">
+                {{ u.role }}
+              </span>
+            </td>
+            <td>
+              <div class="role-select-wrap">
+                <select 
+                  class="role-select" 
+                  [value]="u.role" 
+                  (change)="onRoleChange(u, $event)"
+                  [title]="'Change role for ' + u.username">
+                  <option *ngFor="let r of roles" [value]="r">{{ r }}</option>
+                </select>
+                <span class="select-caret">▾</span>
+              </div>
+            </td>
+          </tr>
+          <tr *ngIf="filteredUsers().length === 0 && !isLoading()">
+            <td colspan="5" class="empty-cell">
+              No matching users found.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Footer -->
+    <div class="um-footer">
+      <span class="um-stats">Total Registered Users: <strong>{{ users().length }}</strong></span>
+      <button type="button" class="btn btn-secondary" (click)="close.emit()">
+        Done
+      </button>
+    </div>
+  </div>
+</div>
+

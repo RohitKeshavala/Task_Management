@@ -3,6 +3,7 @@ import { TaskService } from '../services/taskService.js';
 import { TagService } from '../services/tagService.js';
 import { DependencyService } from '../services/dependencyService.js';
 import { AssociateTagSchema, AddDependencySchema } from '../types/index.js';
+import { requireRole } from '../middleware/auth.js';
 
 export const taskRouter = Router();
 
@@ -41,7 +42,7 @@ taskRouter.get('/:id', (req: Request, res: Response, next: NextFunction) => {
 });
 
 // POST create task
-taskRouter.post('/', (req: Request, res: Response, next: NextFunction) => {
+taskRouter.post('/', requireRole(['ADMIN', 'MEMBER']), (req: Request, res: Response, next: NextFunction) => {
   try {
     const created = TaskService.create(req.body);
     res.status(201).json(created);
@@ -51,7 +52,7 @@ taskRouter.post('/', (req: Request, res: Response, next: NextFunction) => {
 });
 
 // PUT update task
-taskRouter.put('/:id', (req: Request, res: Response, next: NextFunction) => {
+taskRouter.put('/:id', requireRole(['ADMIN', 'MEMBER']), (req: Request, res: Response, next: NextFunction) => {
   try {
     const id = String(req.params.id);
     const updated = TaskService.update(id, req.body);
@@ -66,7 +67,7 @@ taskRouter.put('/:id', (req: Request, res: Response, next: NextFunction) => {
 });
 
 // DELETE task
-taskRouter.delete('/:id', (req: Request, res: Response, next: NextFunction) => {
+taskRouter.delete('/:id', requireRole(['ADMIN', 'MEMBER']), (req: Request, res: Response, next: NextFunction) => {
   try {
     const id = String(req.params.id);
     const deleted = TaskService.delete(id);
@@ -96,7 +97,7 @@ taskRouter.get('/:id/tags', (req: Request, res: Response, next: NextFunction) =>
 });
 
 // POST associate tag with task
-taskRouter.post('/:id/tags', (req: Request, res: Response, next: NextFunction) => {
+taskRouter.post('/:id/tags', requireRole(['ADMIN', 'MEMBER']), (req: Request, res: Response, next: NextFunction) => {
   try {
     const taskId = String(req.params.id);
     const validated = AssociateTagSchema.parse(req.body);
@@ -117,7 +118,7 @@ taskRouter.post('/:id/tags', (req: Request, res: Response, next: NextFunction) =
 });
 
 // DELETE remove tag from task
-taskRouter.delete('/:id/tags/:tagId', (req: Request, res: Response, next: NextFunction) => {
+taskRouter.delete('/:id/tags/:tagId', requireRole(['ADMIN', 'MEMBER']), (req: Request, res: Response, next: NextFunction) => {
   try {
     const taskId = String(req.params.id);
     const tagId = String(req.params.tagId);
@@ -144,7 +145,7 @@ taskRouter.get('/:id/dependencies', (req: Request, res: Response, next: NextFunc
 });
 
 // POST add dependency: task :id depends on dependsOnTaskId
-taskRouter.post('/:id/dependencies', (req: Request, res: Response, next: NextFunction) => {
+taskRouter.post('/:id/dependencies', requireRole(['ADMIN', 'MEMBER']), (req: Request, res: Response, next: NextFunction) => {
   try {
     const taskId = String(req.params.id);
     const validated = AddDependencySchema.parse(req.body);
@@ -158,7 +159,7 @@ taskRouter.post('/:id/dependencies', (req: Request, res: Response, next: NextFun
 });
 
 // DELETE remove dependency: task :id no longer depends on dependsOnTaskId
-taskRouter.delete('/:id/dependencies/:dependsOnTaskId', (req: Request, res: Response, next: NextFunction) => {
+taskRouter.delete('/:id/dependencies/:dependsOnTaskId', requireRole(['ADMIN', 'MEMBER']), (req: Request, res: Response, next: NextFunction) => {
   try {
     const taskId = String(req.params.id);
     const dependsOnTaskId = String(req.params.dependsOnTaskId);

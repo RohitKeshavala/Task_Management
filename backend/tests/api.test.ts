@@ -54,7 +54,9 @@ describe('TaskFlow API Integration Tests', () => {
     });
 
     it('should delete project and cascade', async () => {
-      const res = await request(app).delete('/api/projects/test-proj-1');
+      const res = await request(app)
+        .delete('/api/projects/test-proj-1')
+        .set('x-user-role', 'ADMIN');
       expect(res.status).toBe(204);
 
       const check = await request(app).get('/api/projects/test-proj-1');

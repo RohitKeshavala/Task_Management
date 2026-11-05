@@ -1,5 +1,6 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { ProjectService } from '../services/projectService.js';
+import { requireRole } from '../middleware/auth.js';
 
 export const projectRouter = Router();
 
@@ -29,7 +30,7 @@ projectRouter.get('/:id', (req: Request, res: Response, next: NextFunction) => {
 });
 
 // POST create project
-projectRouter.post('/', (req: Request, res: Response, next: NextFunction) => {
+projectRouter.post('/', requireRole(['ADMIN', 'MEMBER']), (req: Request, res: Response, next: NextFunction) => {
   try {
     const created = ProjectService.create(req.body);
     res.status(201).json(created);
@@ -39,7 +40,7 @@ projectRouter.post('/', (req: Request, res: Response, next: NextFunction) => {
 });
 
 // PUT update project
-projectRouter.put('/:id', (req: Request, res: Response, next: NextFunction) => {
+projectRouter.put('/:id', requireRole(['ADMIN', 'MEMBER']), (req: Request, res: Response, next: NextFunction) => {
   try {
     const id = String(req.params.id);
     const updated = ProjectService.update(id, req.body);
@@ -54,7 +55,7 @@ projectRouter.put('/:id', (req: Request, res: Response, next: NextFunction) => {
 });
 
 // DELETE project
-projectRouter.delete('/:id', (req: Request, res: Response, next: NextFunction) => {
+projectRouter.delete('/:id', requireRole(['ADMIN']), (req: Request, res: Response, next: NextFunction) => {
   try {
     const id = String(req.params.id);
     const deleted = ProjectService.delete(id);
@@ -67,3 +68,4 @@ projectRouter.delete('/:id', (req: Request, res: Response, next: NextFunction) =
     next(err);
   }
 });
+

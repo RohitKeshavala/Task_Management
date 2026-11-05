@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
 export * from './errors.js';
+export * from './auth.js';
+
+export type UserRole = 'ADMIN' | 'MEMBER' | 'VIEWER';
+export const VALID_USER_ROLES: readonly UserRole[] = ['ADMIN', 'MEMBER', 'VIEWER'] as const;
 
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH';
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE';

@@ -67,6 +67,28 @@
     </div>
 
     <div class="nav-controls">
+      <!-- Admin: Manage Users Button (ADMIN only) -->
+      <button 
+        type="button" 
+        *ngIf="activeRole() === 'ADMIN'"
+        class="btn btn-admin-manage" 
+        (click)="openUserManagementModal()" 
+        title="Open User Role Governance (Admin Only)">
+        <span class="admin-icon">🛡️</span>
+        <span class="admin-label">Manage Users</span>
+      </button>
+
+      <!-- User Profile Trigger Button -->
+      <button 
+        type="button" 
+        class="btn btn-profile-trigger" 
+        (click)="openProfileModal()" 
+        [title]="'User Profile • ' + activeRole()">
+        <span class="profile-avatar">{{ activeRole() === 'ADMIN' ? '👑' : (activeRole() === 'VIEWER' ? '👁️' : '👤') }}</span>
+        <span class="profile-name">{{ currentUser()?.username || 'Alex Mercer' }}</span>
+        <span class="role-badge role-badge-{{ activeRole().toLowerCase() }}">{{ activeRole() }}</span>
+      </button>
+
       <!-- Theme Toggle Button -->
       <button 
         type="button"
@@ -91,14 +113,29 @@
           </select>
           <span class="select-caret">▾</span>
         </div>
-        <button class="btn btn-icon-danger" (click)="deleteProject(selectedProjectId())" title="Delete current project">🗑️</button>
+        <button 
+          *ngIf="canDeleteProject()"
+          class="btn btn-icon-danger" 
+          (click)="deleteProject(selectedProjectId())" 
+          title="Delete current project">
+          🗑️
+        </button>
       </div>
 
       <!-- Action Buttons -->
-      <button class="btn btn-secondary" (click)="showNewProjectModal.set(true)">
+      <button 
+        *ngIf="canCreateProject()"
+        class="btn btn-secondary" 
+        (click)="showNewProjectModal.set(true)"
+        title="Create new project">
         <span class="btn-icon">+</span> New Project
       </button>
-      <button class="btn btn-primary" (click)="openNewTaskModal()" [disabled]="!selectedProjectId()">
+      <button 
+        *ngIf="canMutateTasks()"
+        class="btn btn-primary" 
+        (click)="openNewTaskModal()" 
+        [disabled]="!selectedProjectId()"
+        title="Create new task">
         <span class="btn-icon">+</span> New Task
       </button>
     </div>
@@ -281,14 +318,14 @@
             class="task-card" 
             [class.task-overdue]="isTaskOverdue(task)"
             [class.dragging]="draggedTaskId() === task.id"
-            draggable="true"
+            [attr.draggable]="canMutateTasks()"
             (dragstart)="onDragStart($event, task)"
             (dragend)="onDragEnd()"
             [attr.data-task-id]="task.id"
             *ngFor="let task of todoTasks()">
             <div class="task-card-top">
               <div class="task-card-badges">
-                <span class="drag-handle" title="Drag to move task">⠿</span>
+                <span class="drag-handle" [title]="canMutateTasks() ? 'Drag to move task' : 'VIEWER role cannot move tasks'">⠿</span>
                 <span class="priority-tag priority-{{ task.priority.toLowerCase() }}">{{ task.priority }}</span>
                 <span class="overdue-badge" *ngIf="isTaskOverdue(task)" title="Task deadline has passed!">
                   <span class="overdue-dot"></span>
@@ -313,7 +350,7 @@
                   🔗 {{ task.dependsOnTaskIds.length }} Prereqs
                 </button>
               </div>
-              <div class="task-card-actions">
+              <div class="task-card-actions" *ngIf="canMutateTasks()">
                 <button class="btn-card-dep" (click)="$event.stopPropagation(); openDependencyModal(task)" draggable="false" title="Manage Dependencies & Blockers">🔗</button>
                 <button class="btn-card-del" (click)="deleteTask(task.id)" draggable="false" title="Delete task">✕</button>
               </div>
@@ -338,7 +375,7 @@
                 <span class="task-date-icon">{{ isTaskOverdue(task) ? '⚠️' : (isDueToday(task) ? '⏰' : '📅') }}</span>
                 <span>{{ task.dueDate | date:'mediumDate' }}</span>
               </span>
-              <button class="btn btn-sm btn-action" (click)="updateStatus(task, 'IN_PROGRESS')" draggable="false">
+              <button *ngIf="canMutateTasks()" class="btn btn-sm btn-action" (click)="updateStatus(task, 'IN_PROGRESS')" draggable="false">
                 Start →
               </button>
             </div>
@@ -369,14 +406,14 @@
             class="task-card" 
             [class.task-overdue]="isTaskOverdue(task)"
             [class.dragging]="draggedTaskId() === task.id"
-            draggable="true"
+            [attr.draggable]="canMutateTasks()"
             (dragstart)="onDragStart($event, task)"
             (dragend)="onDragEnd()"
             [attr.data-task-id]="task.id"
             *ngFor="let task of inProgressTasks()">
             <div class="task-card-top">
               <div class="task-card-badges">
-                <span class="drag-handle" title="Drag to move task">⠿</span>
+                <span class="drag-handle" [title]="canMutateTasks() ? 'Drag to move task' : 'VIEWER role cannot move tasks'">⠿</span>
                 <span class="priority-tag priority-{{ task.priority.toLowerCase() }}">{{ task.priority }}</span>
                 <span class="overdue-badge" *ngIf="isTaskOverdue(task)" title="Task deadline has passed!">
                   <span class="overdue-dot"></span>
@@ -401,7 +438,7 @@
                   🔗 {{ task.dependsOnTaskIds.length }} Prereqs
                 </button>
               </div>
-              <div class="task-card-actions">
+              <div class="task-card-actions" *ngIf="canMutateTasks()">
                 <button class="btn-card-dep" (click)="$event.stopPropagation(); openDependencyModal(task)" draggable="false" title="Manage Dependencies & Blockers">🔗</button>
                 <button class="btn-card-del" (click)="deleteTask(task.id)" draggable="false" title="Delete task">✕</button>
               </div>
@@ -426,7 +463,7 @@
                 <span class="task-date-icon">{{ isTaskOverdue(task) ? '⚠️' : (isDueToday(task) ? '⏰' : '📅') }}</span>
                 <span>{{ task.dueDate | date:'mediumDate' }}</span>
               </span>
-              <div class="task-footer-btns">
+              <div class="task-footer-btns" *ngIf="canMutateTasks()">
                 <button class="btn btn-sm btn-secondary" (click)="updateStatus(task, 'TODO')" draggable="false">
                   ← Todo
                 </button>
@@ -461,14 +498,14 @@
           <div 
             class="task-card task-card-done" 
             [class.dragging]="draggedTaskId() === task.id"
-            draggable="true"
+            [attr.draggable]="canMutateTasks()"
             (dragstart)="onDragStart($event, task)"
             (dragend)="onDragEnd()"
             [attr.data-task-id]="task.id"
             *ngFor="let task of doneTasks()">
             <div class="task-card-top">
               <div class="task-card-badges">
-                <span class="drag-handle" title="Drag to move task">⠿</span>
+                <span class="drag-handle" [title]="canMutateTasks() ? 'Drag to move task' : 'VIEWER role cannot move tasks'">⠿</span>
                 <span class="priority-tag priority-{{ task.priority.toLowerCase() }}">{{ task.priority }}</span>
                 <button 
                   type="button" 
@@ -489,7 +526,7 @@
                   🔗 {{ task.dependsOnTaskIds.length }} Prereqs
                 </button>
               </div>
-              <div class="task-card-actions">
+              <div class="task-card-actions" *ngIf="canMutateTasks()">
                 <button class="btn-card-dep" (click)="$event.stopPropagation(); openDependencyModal(task)" draggable="false" title="Manage Dependencies & Blockers">🔗</button>
                 <button class="btn-card-del" (click)="deleteTask(task.id)" draggable="false" title="Delete task">✕</button>
               </div>
@@ -517,7 +554,7 @@
               <span class="completed-check" *ngIf="!task.dueDate">✓ Finished</span>
               <div class="task-footer-btns">
                 <span class="completed-check" *ngIf="task.dueDate">✓ Finished</span>
-                <button class="btn btn-sm btn-secondary" (click)="updateStatus(task, 'IN_PROGRESS')" draggable="false">
+                <button *ngIf="canMutateTasks()" class="btn btn-sm btn-secondary" (click)="updateStatus(task, 'IN_PROGRESS')" draggable="false">
                   Reopen
                 </button>
               </div>
@@ -990,4 +1027,27 @@
 
     </div>
   </div>
+
+  <!-- User Profile Modal -->
+  <app-profile 
+    [isOpen]="showProfileModal()" 
+    [activeRole]="activeRole()" 
+    [currentUser]="currentUser()"
+    (close)="closeProfileModal()" 
+    (logout)="handleLogout()">
+  </app-profile>
+
+  <!-- Auth Modal (Log In / Sign Up) -->
+  <app-auth-modal
+    [isOpen]="showAuthModal()"
+    (authenticated)="onAuthenticated($event)"
+    (close)="closeAuthModal()">
+  </app-auth-modal>
+
+  <!-- Admin User Role Governance Modal -->
+  <app-user-management
+    [isOpen]="showUserManagementModal()"
+    (close)="closeUserManagementModal()"
+    (roleChanged)="onUserRoleChanged($event)">
+  </app-user-management>
 </div>

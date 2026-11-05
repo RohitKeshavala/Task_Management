@@ -81,6 +81,7 @@ describe('App Component', () => {
   }
 
   beforeEach(async () => {
+    localStorage.clear();
     await TestBed.configureTestingModule({
       imports: [App],
       providers: [
@@ -92,6 +93,11 @@ describe('App Component', () => {
     fixture = TestBed.createComponent(App);
     app = fixture.componentInstance;
     service = TestBed.inject(TaskFlowService);
+    app.onRoleChange('ADMIN');
+  });
+
+  afterEach(() => {
+    localStorage.clear();
   });
 
   it('should create the TaskFlow app component', () => {
@@ -1246,6 +1252,130 @@ describe('App Component', () => {
       expect(deleteSpy).not.toHaveBeenCalled();
       expect(app.confirmDialog()).toBeNull();
       expect(fixture.nativeElement.querySelector('.confirm-modal-box')).toBeNull();
+    });
+
+    it('should manage profile modal open and close states', () => {
+      expect(app.showProfileModal()).toBeFalse();
+
+      app.openProfileModal();
+      expect(app.showProfileModal()).toBeTrue();
+
+      app.closeProfileModal();
+      expect(app.showProfileModal()).toBeFalse();
+    });
+
+    it('should update active role and notify when onRoleChange is called', () => {
+      app.onRoleChange('ADMIN');
+      expect(app.activeRole()).toBe('ADMIN');
+      expect(app.canDeleteProject()).toBeTrue();
+      expect(app.canMutateTasks()).toBeTrue();
+      expect(app.canCreateProject()).toBeTrue();
+      expect(app.activeNotification()?.title).toBe('Active Role Switched');
+
+      app.onRoleChange('VIEWER');
+      expect(app.activeRole()).toBe('VIEWER');
+      expect(app.canDeleteProject()).toBeFalse();
+      expect(app.canMutateTasks()).toBeFalse();
+      expect(app.canCreateProject()).toBeFalse();
+
+      app.onRoleChange('MEMBER');
+      expect(app.activeRole()).toBe('MEMBER');
+      expect(app.canDeleteProject()).toBeFalse();
+      expect(app.canMutateTasks()).toBeTrue();
+      expect(app.canCreateProject()).toBeTrue();
+    });
+
+    it('should guard delete project when role is MEMBER or VIEWER', () => {
+      app.projects.set([sampleProject]);
+      app.selectedProjectId.set(sampleProject.id);
+
+      app.onRoleChange('MEMBER');
+      app.deleteProject(sampleProject.id);
+      expect(app.confirmDialog()).toBeNull();
+      expect(app.activeNotification()?.title).toBe('Permission Denied');
+
+      app.onRoleChange('VIEWER');
+      app.deleteProject(sampleProject.id);
+      expect(app.confirmDialog()).toBeNull();
+      expect(app.activeNotification()?.title).toBe('Permission Denied');
+    });
+
+    it('should guard task actions when role is VIEWER', () => {
+      app.tasks.set([sampleTodoTask]);
+      app.onRoleChange('VIEWER');
+
+      app.openNewTaskModal();
+      expect(app.showNewTaskModal()).toBeFalse();
+      expect(app.activeNotification()?.title).toBe('Read-Only Mode');
+
+      app.deleteTask(sampleTodoTask.id);
+      expect(app.confirmDialog()).toBeNull();
+      expect(app.activeNotification()?.title).toBe('Read-Only Mode');
+    });
+
+    it('should manage authentication modal, login success, and logout', () => {
+      const sampleUser: any = {
+        id: 'u-123',
+        username: 'testadmin',
+        email: 'testadmin@example.com',
+        role: 'ADMIN',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      app.openAuthModal();
+      expect(app.showAuthModal()).toBeTrue();
+
+      app.closeAuthModal();
+      expect(app.showAuthModal()).toBeFalse();
+
+      app.onAuthenticated(sampleUser);
+      expect(app.showAuthModal()).toBeFalse();
+      expect(app.activeNotification()?.title).toBe('Welcome Back');
+
+      app.handleLogout();
+      expect(app.showAuthModal()).toBeTrue();
+      expect(app.showProfileModal()).toBeFalse();
+      expect(app.activeNotification()?.title).toBe('Signed Out');
+    });
+
+    it('should guard admin user management modal access', () => {
+      app.onRoleChange('ADMIN');
+      app.openUserManagementModal();
+      expect(app.showUserManagementModal()).toBeTrue();
+
+      app.closeUserManagementModal();
+      expect(app.showUserManagementModal()).toBeFalse();
+
+      app.onRoleChange('MEMBER');
+      app.openUserManagementModal();
+      expect(app.showUserManagementModal()).toBeFalse();
+      expect(app.activeNotification()?.title).toBe('Permission Denied');
+    });
+
+    it('should completely remove unauthorized action buttons from the DOM based on role', () => {
+      app.projects.set([sampleProject]);
+      app.selectedProjectId.set(sampleProject.id);
+      app.tasks.set([sampleTodoTask]);
+
+      // ADMIN role: can see delete project, create project, create task
+      app.onRoleChange('ADMIN');
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.btn-icon-danger')).toBeTruthy();
+      expect(fixture.nativeElement.querySelector('.task-card-actions')).toBeTruthy();
+
+      // MEMBER role: delete project button is completely removed from DOM
+      app.onRoleChange('MEMBER');
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.btn-icon-danger')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.task-card-actions')).toBeTruthy();
+
+      // VIEWER role: delete project, card action buttons, and status buttons are removed
+      app.onRoleChange('VIEWER');
+      fixture.detectChanges();
+      expect(fixture.nativeElement.querySelector('.btn-icon-danger')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.task-card-actions')).toBeNull();
+      expect(fixture.nativeElement.querySelector('.btn-action')).toBeNull();
     });
   });
 });
