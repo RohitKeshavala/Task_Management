@@ -1,0 +1,993 @@
+<div class="app-shell">
+  <!-- Top Floating Notification / Toast Banner -->
+  <div 
+    class="top-notification-banner banner-{{ activeNotification()?.type || 'danger' }}"
+    *ngIf="activeNotification() as notif"
+    role="alert"
+    aria-live="assertive"
+    aria-atomic="true">
+
+    <!-- Ambient Glow Halo & Status Icon -->
+    <div class="banner-icon-halo" aria-hidden="true">
+      <span class="banner-icon-symbol">{{ notif.icon || (notif.type === 'danger' ? '🛑' : '⚠️') }}</span>
+    </div>
+
+    <!-- Main Notification Copy -->
+    <div class="banner-body">
+      <div class="banner-headline-row">
+        <span class="banner-badge">{{ notif.badgeText || (notif.type === 'danger' ? 'RESTRICTION' : 'NOTICE') }}</span>
+        <h4 class="banner-title">{{ notif.title }}</h4>
+      </div>
+      
+      <p class="banner-message">{{ notif.message }}</p>
+
+      <!-- Tagged Prerequisite Blocker Badges -->
+      <div class="banner-blockers-row" *ngIf="notif.blockers && notif.blockers.length > 0">
+        <span class="blockers-lead">Blocking Prerequisite(s):</span>
+        <div class="blockers-chips">
+          <span class="blocker-chip" *ngFor="let item of notif.blockers">
+            <span class="blocker-chip-dot"></span>
+            <span class="blocker-chip-text">{{ item }}</span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Close Action -->
+    <button 
+      type="button" 
+      class="banner-close-btn" 
+      (click)="dismissNotification()"
+      aria-label="Dismiss notification"
+      title="Dismiss">
+      ✕
+    </button>
+
+    <!-- Auto-Dismiss Linear Progress Indicator -->
+    <div 
+      class="banner-progress-track" 
+      *ngIf="notif.durationMs && notif.durationMs > 0">
+      <div 
+        class="banner-progress-bar"
+        [style.animation-duration.ms]="notif.durationMs">
+      </div>
+    </div>
+  </div>
+
+  <!-- Top Navbar -->
+  <header class="navbar">
+    <div class="brand">
+      <div class="logo-icon-wrap">
+        <span class="logo-icon">⚡</span>
+      </div>
+      <div>
+        <h1 class="logo-title">TaskFlow</h1>
+        <p class="logo-subtitle">Task Management System</p>
+      </div>
+    </div>
+
+    <div class="nav-controls">
+      <!-- Theme Toggle Button -->
+      <button 
+        type="button"
+        class="btn btn-theme-toggle" 
+        (click)="toggleTheme()" 
+        [attr.aria-label]="'Switch to ' + (currentTheme() === 'dark' ? 'light' : 'dark') + ' mode'"
+        [title]="'Switch to ' + (currentTheme() === 'dark' ? 'light' : 'dark') + ' mode'">
+        <span class="theme-icon">{{ currentTheme() === 'dark' ? '🌙' : '☀️' }}</span>
+        <span class="theme-label">{{ currentTheme() === 'dark' ? 'Dark' : 'Light' }}</span>
+      </button>
+
+      <!-- Project Selector -->
+      <div class="project-selector-wrap" *ngIf="projects().length > 0">
+        <label for="project-select" class="selector-label">Active Project:</label>
+        <div class="select-dropdown-container">
+          <select 
+            id="project-select" 
+            [value]="selectedProjectId()" 
+            (change)="onProjectChange($any($event.target).value)"
+            class="select-input">
+            <option *ngFor="let p of projects()" [value]="p.id">{{ p.name }}</option>
+          </select>
+          <span class="select-caret">▾</span>
+        </div>
+        <button class="btn btn-icon-danger" (click)="deleteProject(selectedProjectId())" title="Delete current project">🗑️</button>
+      </div>
+
+      <!-- Action Buttons -->
+      <button class="btn btn-secondary" (click)="showNewProjectModal.set(true)">
+        <span class="btn-icon">+</span> New Project
+      </button>
+      <button class="btn btn-primary" (click)="openNewTaskModal()" [disabled]="!selectedProjectId()">
+        <span class="btn-icon">+</span> New Task
+      </button>
+    </div>
+  </header>
+
+  <!-- Error banner if backend down -->
+  <div class="banner error-banner" *ngIf="errorMessage()">
+    <div class="banner-content">
+      <span class="banner-icon">⚠️</span>
+      <span>{{ errorMessage() }}</span>
+    </div>
+    <button class="btn btn-sm btn-outline" (click)="loadProjects()">Retry Connection</button>
+  </div>
+
+  <!-- Main Board Content -->
+  <main class="board-container">
+    <!-- Project Header Info -->
+    <div class="project-banner" *ngIf="selectedProject() as p">
+      <div class="project-details">
+        <div class="project-title-row">
+          <span class="project-badge">ACTIVE SPRINT</span>
+          <h2>{{ p.name }}</h2>
+        </div>
+        <p>{{ p.description || 'No description provided.' }}</p>
+      </div>
+      <div class="project-stats">
+        <span class="stat-pill stat-total">Total: {{ tasks().length }}</span>
+        <span class="stat-pill stat-todo">Todo: {{ todoTasks().length }}</span>
+        <span class="stat-pill stat-prog">In Progress: {{ inProgressTasks().length }}</span>
+        <span class="stat-pill stat-done">Done: {{ doneTasks().length }}</span>
+      </div>
+    </div>
+
+    <!-- Combined Frosted Filter Control Bar -->
+    <section 
+      class="filter-control-bar" 
+      *ngIf="selectedProjectId()"
+      role="region" 
+      aria-label="Kanban board filters">
+
+      <!-- Left: Filter Groups Cluster -->
+      <div class="filter-groups-cluster">
+        
+        <!-- 1. Priority Filter Group -->
+        <div class="filter-group" role="group" aria-label="Filter by priority">
+          <div class="filter-group-header">
+            <span class="filter-group-icon" aria-hidden="true">⚡</span>
+            <span class="filter-group-label">Priority:</span>
+          </div>
+          <div class="filter-pills-wrap">
+            <button 
+              type="button"
+              class="filter-chip filter-chip-all" 
+              [class.active]="selectedPriorityFilter() === ''" 
+              (click)="setPriorityFilter('')"
+              [attr.aria-pressed]="selectedPriorityFilter() === ''">
+              All
+            </button>
+
+            <button 
+              type="button"
+              class="filter-chip priority-chip-high" 
+              [class.active]="selectedPriorityFilter() === 'HIGH'" 
+              (click)="setPriorityFilter('HIGH')"
+              [attr.aria-pressed]="selectedPriorityFilter() === 'HIGH'">
+              <span class="priority-dot dot-high" aria-hidden="true"></span>
+              High
+            </button>
+
+            <button 
+              type="button"
+              class="filter-chip priority-chip-medium" 
+              [class.active]="selectedPriorityFilter() === 'MEDIUM'" 
+              (click)="setPriorityFilter('MEDIUM')"
+              [attr.aria-pressed]="selectedPriorityFilter() === 'MEDIUM'">
+              <span class="priority-dot dot-medium" aria-hidden="true"></span>
+              Medium
+            </button>
+
+            <button 
+              type="button"
+              class="filter-chip priority-chip-low" 
+              [class.active]="selectedPriorityFilter() === 'LOW'" 
+              (click)="setPriorityFilter('LOW')"
+              [attr.aria-pressed]="selectedPriorityFilter() === 'LOW'">
+              <span class="priority-dot dot-low" aria-hidden="true"></span>
+              Low
+            </button>
+          </div>
+        </div>
+
+        <!-- Elegant Vertical Separator -->
+        <div class="filter-divider" role="separator" aria-orientation="vertical"></div>
+
+        <!-- 2. Tag Filter Group -->
+        <div class="filter-group" role="group" aria-label="Filter by tag">
+          <div class="filter-group-header">
+            <span class="filter-group-icon" aria-hidden="true">🏷️</span>
+            <span class="filter-group-label">Tags:</span>
+          </div>
+          <div class="filter-pills-wrap">
+            <button 
+              type="button"
+              class="filter-chip filter-chip-all" 
+              [class.active]="selectedTagFilter() === ''" 
+              (click)="setTagFilter('')"
+              [attr.aria-pressed]="selectedTagFilter() === ''">
+              All
+            </button>
+
+            <!-- Dynamically listed project tags -->
+            <button 
+              type="button"
+              *ngFor="let tag of allTags()" 
+              class="filter-chip tag-filter-chip" 
+              [class.active]="selectedTagFilter() === tag.id"
+              [style.--chip-color]="tag.color"
+              (click)="setTagFilter(tag.id)"
+              [attr.aria-pressed]="selectedTagFilter() === tag.id">
+              <span class="tag-dot" [style.backgroundColor]="tag.color" aria-hidden="true"></span>
+              {{ tag.name }}
+            </button>
+
+            <span class="no-tags-hint" *ngIf="allTags().length === 0">
+              No tags in project
+            </span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right: Active Filter Summary & Clear All Reset -->
+      <div class="filter-actions-cluster" *ngIf="activeFilterCount() > 0">
+        <div class="active-filter-summary" role="status" aria-live="polite">
+          <span class="summary-pulse-dot" aria-hidden="true"></span>
+          <span class="summary-text">{{ activeFilterCount() }} Active {{ activeFilterCount() === 1 ? 'Filter' : 'Filters' }}</span>
+        </div>
+
+        <button 
+          type="button"
+          class="btn-clear-filters" 
+          (click)="clearAllFilters()"
+          title="Reset all active filters"
+          aria-label="Clear all active filters">
+          <span class="clear-icon" aria-hidden="true">✕</span>
+          <span>Clear All</span>
+        </button>
+      </div>
+
+    </section>
+
+    <!-- Empty State if no project -->
+    <div class="empty-state" *ngIf="projects().length === 0 && !loading()">
+      <div class="empty-box">
+        <div class="empty-icon-halo">⚡</div>
+        <h3>No Projects Yet</h3>
+        <p>Create a project or make sure your backend server is running on port 3000.</p>
+        <button class="btn btn-primary" (click)="showNewProjectModal.set(true)">Create First Project</button>
+      </div>
+    </div>
+
+    <!-- Kanban Grid -->
+    <div class="kanban-grid" *ngIf="selectedProjectId()">
+      <!-- TODO Column -->
+      <div 
+        class="kanban-column col-todo"
+        [class.drag-over]="dragOverColumn() === 'TODO'"
+        (dragenter)="onDragEnter($event, 'TODO')"
+        (dragover)="onDragOver($event, 'TODO')"
+        (dragleave)="onDragLeave($event, 'TODO')"
+        (drop)="onDrop($event, 'TODO')"
+        data-status="TODO">
+        <div class="column-header">
+          <span class="col-dot dot-todo"></span>
+          <h3>TO DO</h3>
+          <span class="count-badge">{{ todoTasks().length }}</span>
+        </div>
+        <div class="task-list">
+          <div 
+            class="task-card" 
+            [class.task-overdue]="isTaskOverdue(task)"
+            [class.dragging]="draggedTaskId() === task.id"
+            draggable="true"
+            (dragstart)="onDragStart($event, task)"
+            (dragend)="onDragEnd()"
+            [attr.data-task-id]="task.id"
+            *ngFor="let task of todoTasks()">
+            <div class="task-card-top">
+              <div class="task-card-badges">
+                <span class="drag-handle" title="Drag to move task">⠿</span>
+                <span class="priority-tag priority-{{ task.priority.toLowerCase() }}">{{ task.priority }}</span>
+                <span class="overdue-badge" *ngIf="isTaskOverdue(task)" title="Task deadline has passed!">
+                  <span class="overdue-dot"></span>
+                  OVERDUE
+                </span>
+                <button 
+                  type="button" 
+                  *ngIf="getBlockerCount(task) > 0 && task.status !== 'DONE'" 
+                  class="dep-pill dep-pill-blocked" 
+                  (click)="$event.stopPropagation(); openDependencyModal(task)" 
+                  title="Task has {{ getBlockerCount(task) }} unfinished blocker(s). Click to manage."
+                  draggable="false">
+                  ⚠️ {{ getBlockerCount(task) }} Blocked
+                </button>
+                <button 
+                  type="button" 
+                  *ngIf="task.dependsOnTaskIds && task.dependsOnTaskIds.length > 0 && (getBlockerCount(task) === 0 || task.status === 'DONE')" 
+                  class="dep-pill dep-pill-prereq" 
+                  (click)="$event.stopPropagation(); openDependencyModal(task)" 
+                  title="Task has {{ task.dependsOnTaskIds.length }} prerequisite(s). Click to manage."
+                  draggable="false">
+                  🔗 {{ task.dependsOnTaskIds.length }} Prereqs
+                </button>
+              </div>
+              <div class="task-card-actions">
+                <button class="btn-card-dep" (click)="$event.stopPropagation(); openDependencyModal(task)" draggable="false" title="Manage Dependencies & Blockers">🔗</button>
+                <button class="btn-card-del" (click)="deleteTask(task.id)" draggable="false" title="Delete task">✕</button>
+              </div>
+            </div>
+            <h4 class="task-title">{{ task.title }}</h4>
+            <p class="task-desc">{{ task.description }}</p>
+            <div class="task-tags-row" *ngIf="task.tags && task.tags.length > 0">
+              <button 
+                type="button"
+                *ngFor="let tag of task.tags" 
+                class="task-tag-pill" 
+                [style.--tag-color]="tag.color"
+                (click)="$event.stopPropagation(); setTagFilter(tag.id)"
+                title="Filter by {{ tag.name }}"
+                draggable="false">
+                <span class="tag-dot" [style.backgroundColor]="tag.color"></span>
+                {{ tag.name }}
+              </button>
+            </div>
+            <div class="task-card-footer">
+              <span class="task-date" [class.task-date-overdue]="isTaskOverdue(task)" [class.task-date-today]="isDueToday(task)" *ngIf="task.dueDate">
+                <span class="task-date-icon">{{ isTaskOverdue(task) ? '⚠️' : (isDueToday(task) ? '⏰' : '📅') }}</span>
+                <span>{{ task.dueDate | date:'mediumDate' }}</span>
+              </span>
+              <button class="btn btn-sm btn-action" (click)="updateStatus(task, 'IN_PROGRESS')" draggable="false">
+                Start →
+              </button>
+            </div>
+          </div>
+          <div class="empty-column-msg" *ngIf="todoTasks().length === 0">
+            <span class="empty-col-icon">📥</span>
+            <span>No pending tasks</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- IN PROGRESS Column -->
+      <div 
+        class="kanban-column col-progress"
+        [class.drag-over]="dragOverColumn() === 'IN_PROGRESS'"
+        (dragenter)="onDragEnter($event, 'IN_PROGRESS')"
+        (dragover)="onDragOver($event, 'IN_PROGRESS')"
+        (dragleave)="onDragLeave($event, 'IN_PROGRESS')"
+        (drop)="onDrop($event, 'IN_PROGRESS')"
+        data-status="IN_PROGRESS">
+        <div class="column-header">
+          <span class="col-dot dot-progress"></span>
+          <h3>IN PROGRESS</h3>
+          <span class="count-badge">{{ inProgressTasks().length }}</span>
+        </div>
+        <div class="task-list">
+          <div 
+            class="task-card" 
+            [class.task-overdue]="isTaskOverdue(task)"
+            [class.dragging]="draggedTaskId() === task.id"
+            draggable="true"
+            (dragstart)="onDragStart($event, task)"
+            (dragend)="onDragEnd()"
+            [attr.data-task-id]="task.id"
+            *ngFor="let task of inProgressTasks()">
+            <div class="task-card-top">
+              <div class="task-card-badges">
+                <span class="drag-handle" title="Drag to move task">⠿</span>
+                <span class="priority-tag priority-{{ task.priority.toLowerCase() }}">{{ task.priority }}</span>
+                <span class="overdue-badge" *ngIf="isTaskOverdue(task)" title="Task deadline has passed!">
+                  <span class="overdue-dot"></span>
+                  OVERDUE
+                </span>
+                <button 
+                  type="button" 
+                  *ngIf="getBlockerCount(task) > 0 && task.status !== 'DONE'" 
+                  class="dep-pill dep-pill-blocked" 
+                  (click)="$event.stopPropagation(); openDependencyModal(task)" 
+                  title="Task has {{ getBlockerCount(task) }} unfinished blocker(s). Click to manage."
+                  draggable="false">
+                  ⚠️ {{ getBlockerCount(task) }} Blocked
+                </button>
+                <button 
+                  type="button" 
+                  *ngIf="task.dependsOnTaskIds && task.dependsOnTaskIds.length > 0 && (getBlockerCount(task) === 0 || task.status === 'DONE')" 
+                  class="dep-pill dep-pill-prereq" 
+                  (click)="$event.stopPropagation(); openDependencyModal(task)" 
+                  title="Task has {{ task.dependsOnTaskIds.length }} prerequisite(s). Click to manage."
+                  draggable="false">
+                  🔗 {{ task.dependsOnTaskIds.length }} Prereqs
+                </button>
+              </div>
+              <div class="task-card-actions">
+                <button class="btn-card-dep" (click)="$event.stopPropagation(); openDependencyModal(task)" draggable="false" title="Manage Dependencies & Blockers">🔗</button>
+                <button class="btn-card-del" (click)="deleteTask(task.id)" draggable="false" title="Delete task">✕</button>
+              </div>
+            </div>
+            <h4 class="task-title">{{ task.title }}</h4>
+            <p class="task-desc">{{ task.description }}</p>
+            <div class="task-tags-row" *ngIf="task.tags && task.tags.length > 0">
+              <button 
+                type="button"
+                *ngFor="let tag of task.tags" 
+                class="task-tag-pill" 
+                [style.--tag-color]="tag.color"
+                (click)="$event.stopPropagation(); setTagFilter(tag.id)"
+                title="Filter by {{ tag.name }}"
+                draggable="false">
+                <span class="tag-dot" [style.backgroundColor]="tag.color"></span>
+                {{ tag.name }}
+              </button>
+            </div>
+            <div class="task-card-footer">
+              <span class="task-date" [class.task-date-overdue]="isTaskOverdue(task)" [class.task-date-today]="isDueToday(task)" *ngIf="task.dueDate">
+                <span class="task-date-icon">{{ isTaskOverdue(task) ? '⚠️' : (isDueToday(task) ? '⏰' : '📅') }}</span>
+                <span>{{ task.dueDate | date:'mediumDate' }}</span>
+              </span>
+              <div class="task-footer-btns">
+                <button class="btn btn-sm btn-secondary" (click)="updateStatus(task, 'TODO')" draggable="false">
+                  ← Todo
+                </button>
+                <button class="btn btn-sm btn-success" (click)="updateStatus(task, 'DONE')" draggable="false">
+                  Done ✓
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="empty-column-msg" *ngIf="inProgressTasks().length === 0">
+            <span class="empty-col-icon">⚡</span>
+            <span>No tasks in progress</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- DONE Column -->
+      <div 
+        class="kanban-column col-done"
+        [class.drag-over]="dragOverColumn() === 'DONE'"
+        (dragenter)="onDragEnter($event, 'DONE')"
+        (dragover)="onDragOver($event, 'DONE')"
+        (dragleave)="onDragLeave($event, 'DONE')"
+        (drop)="onDrop($event, 'DONE')"
+        data-status="DONE">
+        <div class="column-header">
+          <span class="col-dot dot-done"></span>
+          <h3>COMPLETED</h3>
+          <span class="count-badge">{{ doneTasks().length }}</span>
+        </div>
+        <div class="task-list">
+          <div 
+            class="task-card task-card-done" 
+            [class.dragging]="draggedTaskId() === task.id"
+            draggable="true"
+            (dragstart)="onDragStart($event, task)"
+            (dragend)="onDragEnd()"
+            [attr.data-task-id]="task.id"
+            *ngFor="let task of doneTasks()">
+            <div class="task-card-top">
+              <div class="task-card-badges">
+                <span class="drag-handle" title="Drag to move task">⠿</span>
+                <span class="priority-tag priority-{{ task.priority.toLowerCase() }}">{{ task.priority }}</span>
+                <button 
+                  type="button" 
+                  *ngIf="getBlockerCount(task) > 0 && task.status !== 'DONE'" 
+                  class="dep-pill dep-pill-blocked" 
+                  (click)="$event.stopPropagation(); openDependencyModal(task)" 
+                  title="Task has {{ getBlockerCount(task) }} unfinished blocker(s). Click to manage."
+                  draggable="false">
+                  ⚠️ {{ getBlockerCount(task) }} Blocked
+                </button>
+                <button 
+                  type="button" 
+                  *ngIf="task.dependsOnTaskIds && task.dependsOnTaskIds.length > 0 && (getBlockerCount(task) === 0 || task.status === 'DONE')" 
+                  class="dep-pill dep-pill-prereq" 
+                  (click)="$event.stopPropagation(); openDependencyModal(task)" 
+                  title="Task has {{ task.dependsOnTaskIds.length }} prerequisite(s). Click to manage."
+                  draggable="false">
+                  🔗 {{ task.dependsOnTaskIds.length }} Prereqs
+                </button>
+              </div>
+              <div class="task-card-actions">
+                <button class="btn-card-dep" (click)="$event.stopPropagation(); openDependencyModal(task)" draggable="false" title="Manage Dependencies & Blockers">🔗</button>
+                <button class="btn-card-del" (click)="deleteTask(task.id)" draggable="false" title="Delete task">✕</button>
+              </div>
+            </div>
+            <h4 class="task-title">{{ task.title }}</h4>
+            <p class="task-desc">{{ task.description }}</p>
+            <div class="task-tags-row" *ngIf="task.tags && task.tags.length > 0">
+              <button 
+                type="button"
+                *ngFor="let tag of task.tags" 
+                class="task-tag-pill" 
+                [style.--tag-color]="tag.color"
+                (click)="$event.stopPropagation(); setTagFilter(tag.id)"
+                title="Filter by {{ tag.name }}"
+                draggable="false">
+                <span class="tag-dot" [style.backgroundColor]="tag.color"></span>
+                {{ tag.name }}
+              </button>
+            </div>
+            <div class="task-card-footer">
+              <span class="task-date" *ngIf="task.dueDate">
+                <span class="task-date-icon">📅</span>
+                <span>{{ task.dueDate | date:'mediumDate' }}</span>
+              </span>
+              <span class="completed-check" *ngIf="!task.dueDate">✓ Finished</span>
+              <div class="task-footer-btns">
+                <span class="completed-check" *ngIf="task.dueDate">✓ Finished</span>
+                <button class="btn btn-sm btn-secondary" (click)="updateStatus(task, 'IN_PROGRESS')" draggable="false">
+                  Reopen
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="empty-column-msg" *ngIf="doneTasks().length === 0">
+            <span class="empty-col-icon">✨</span>
+            <span>No completed tasks</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Modal: New Task -->
+  <div class="modal-backdrop" *ngIf="showNewTaskModal()">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span class="modal-badge">TASKFLOW WORKFLOW</span>
+          <h3>Create New Task</h3>
+        </div>
+        <button class="btn-card-del" (click)="showNewTaskModal.set(false)" title="Close modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Task Title <span class="required-star">*</span></label>
+          <input type="text" [value]="newTaskTitle()" (input)="newTaskTitle.set($any($event.target).value)" placeholder="e.g. Test /boost Mission 1" class="input-text">
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea [value]="newTaskDescription()" (input)="newTaskDescription.set($any($event.target).value)" placeholder="Task description and acceptance criteria..." rows="3" class="input-text"></textarea>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Priority</label>
+            <div class="select-dropdown-container">
+              <select [value]="newTaskPriority()" (change)="newTaskPriority.set($any($event.target).value)" class="select-input modal-select">
+                <option value="LOW">Low</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="HIGH">High</option>
+              </select>
+              <span class="select-caret">▾</span>
+            </div>
+          </div>
+          <div class="form-group date-picker-group">
+            <div class="form-label-with-hint">
+              <label>Due Date</label>
+              <span class="label-hint" *ngIf="newTaskDueDate()">{{ newTaskDueDate() | date:'mediumDate' }}</span>
+            </div>
+            <div class="date-input-composite">
+              <input 
+                type="date" 
+                [min]="minSelectableDate()"
+                [value]="newTaskDueDate()" 
+                (input)="onDueDateInput($any($event.target).value)" 
+                class="input-text date-picker-input"
+                [class.has-error]="!!dateValidationError()"
+                title="Select task due date">
+              <button 
+                type="button" 
+                class="calendar-open-trigger" 
+                (click)="toggleCalendarPicker()" 
+                [class.active]="showCalendarPicker()" 
+                title="Toggle interactive custom calendar">
+                📅
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick-Preset Shortcut Chips -->
+        <div class="date-presets-row">
+          <span class="presets-label">Quick:</span>
+          <button 
+            type="button" 
+            class="preset-chip" 
+            [class.active]="isPresetActive('today')"
+            (click)="setDatePreset('today')"
+            title="Set due date to Today">
+            Today
+          </button>
+          <button 
+            type="button" 
+            class="preset-chip" 
+            [class.active]="isPresetActive('tomorrow')"
+            (click)="setDatePreset('tomorrow')"
+            title="Set due date to Tomorrow">
+            Tomorrow
+          </button>
+          <button 
+            type="button" 
+            class="preset-chip" 
+            [class.active]="isPresetActive('nextWeek')"
+            (click)="setDatePreset('nextWeek')"
+            title="Set due date to Next Week (+7 days)">
+            Next Week
+          </button>
+          <button 
+            type="button" 
+            class="preset-chip preset-clear" 
+            *ngIf="newTaskDueDate()"
+            (click)="setDatePreset('clear')"
+            title="Clear due date">
+            ✕ Clear
+          </button>
+        </div>
+
+        <!-- Due Date Inline Validation Error -->
+        <div class="field-validation-error" *ngIf="dateValidationError()">
+          <span class="validation-error-icon">⚠️</span>
+          <span>{{ dateValidationError() }}</span>
+        </div>
+
+        <!-- Interactive Custom Calendar Popover -->
+        <div class="calendar-popover" *ngIf="showCalendarPicker()">
+          <div class="calendar-header">
+            <button type="button" class="cal-nav-btn" (click)="prevMonth()" title="Previous month">‹</button>
+            <span class="cal-month-title">{{ calendarMonthYearLabel() }}</span>
+            <button type="button" class="cal-nav-btn" (click)="nextMonth()" title="Next month">›</button>
+          </div>
+          <div class="cal-weekdays">
+            <span *ngFor="let w of ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']" class="cal-weekday">{{ w }}</span>
+          </div>
+          <div class="cal-days-grid">
+            <button 
+              type="button"
+              *ngFor="let cell of calendarDays()" 
+              class="cal-day-cell" 
+              [class.other-month]="!cell.isCurrentMonth"
+              [class.is-today]="cell.isToday"
+              [class.is-selected]="cell.isSelected"
+              [class.is-past]="cell.isPast"
+              [disabled]="cell.isPast"
+              (click)="selectCalendarDate(cell.dateString)"
+              [title]="cell.isPast ? cell.dateString + ' (Past dates cannot be selected)' : cell.dateString">
+              {{ cell.day }}
+            </button>
+          </div>
+          <div class="calendar-footer">
+            <button type="button" class="cal-footer-btn cal-btn-clear" (click)="setDatePreset('clear')">
+              Clear
+            </button>
+            <button type="button" class="cal-footer-btn cal-btn-done" (click)="showCalendarPicker.set(false)">
+              Done
+            </button>
+          </div>
+        </div>
+
+        <!-- Tags Selection & Creation Section -->
+        <div class="form-group">
+          <label class="form-label-with-hint">
+            <span>Tags & Labels</span>
+            <span class="label-hint">Click tag to assign</span>
+          </label>
+          <div class="tags-selection-wrap" *ngIf="allTags().length > 0">
+            <button 
+              type="button"
+              *ngFor="let tag of allTags()" 
+              class="tag-select-chip" 
+              [class.selected]="isTagSelected(tag.id)"
+              [style.--tag-color]="tag.color"
+              (click)="toggleTagSelection(tag.id)">
+              <span class="tag-dot" [style.backgroundColor]="tag.color"></span>
+              {{ tag.name }}
+              <span class="tag-check" *ngIf="isTagSelected(tag.id)">✓</span>
+            </button>
+          </div>
+          <div class="no-tags-msg" *ngIf="allTags().length === 0">
+            No tags created yet. Create a tag below:
+          </div>
+
+          <!-- Inline Create Tag Box -->
+          <div class="create-tag-inline">
+            <input 
+              type="text" 
+              [value]="newTagName()" 
+              (input)="newTagName.set($any($event.target).value)" 
+              placeholder="New tag name..." 
+              class="input-text tag-name-input"
+              (keydown.enter)="$event.preventDefault(); createNewTag()">
+            
+            <div class="color-palette">
+              <button 
+                type="button"
+                *ngFor="let color of colorPalette" 
+                class="color-swatch" 
+                [class.active]="newTagColor() === color"
+                [style.backgroundColor]="color"
+                [attr.title]="color"
+                (click)="newTagColor.set(color)">
+              </button>
+            </div>
+
+            <button 
+              type="button" 
+              class="btn btn-sm btn-secondary btn-add-tag" 
+              (click)="createNewTag()" 
+              [disabled]="!newTagName().trim()">
+              + Add Tag
+            </button>
+          </div>
+        </div>
+
+        <!-- Prerequisites / Dependencies Section -->
+        <div class="form-group" *ngIf="availableNewTaskPrerequisites().length > 0">
+          <label class="form-label-with-hint">
+            <span>Prerequisites / Dependencies</span>
+            <span class="label-hint">Must be completed before starting this task</span>
+          </label>
+          <div class="deps-selection-wrap">
+            <button 
+              type="button"
+              *ngFor="let candidate of availableNewTaskPrerequisites()" 
+              class="dep-select-chip" 
+              [class.selected]="isNewTaskDependencySelected(candidate.id)"
+              (click)="toggleNewTaskDependency(candidate.id)">
+              <span class="dep-chip-status dot-{{ candidate.status.toLowerCase() }}"></span>
+              <span class="dep-chip-title">{{ candidate.title }}</span>
+              <span class="priority-tag priority-{{ candidate.priority.toLowerCase() }}">{{ candidate.priority }}</span>
+              <span class="dep-check" *ngIf="isNewTaskDependencySelected(candidate.id)">✓</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="showNewTaskModal.set(false)">Cancel</button>
+        <button class="btn btn-primary" (click)="createTask()" [disabled]="!newTaskTitle().trim() || !!dateValidationError()">Create Task</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: New Project -->
+  <div class="modal-backdrop" *ngIf="showNewProjectModal()">
+    <div class="modal-box">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span class="modal-badge">WORKSPACE</span>
+          <h3>Create New Project</h3>
+        </div>
+        <button class="btn-card-del" (click)="showNewProjectModal.set(false)" title="Close modal">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Project Name <span class="required-star">*</span></label>
+          <input type="text" [value]="newProjectName()" (input)="newProjectName.set($any($event.target).value)" placeholder="e.g. Mobile App Redesign" class="input-text">
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea [value]="newProjectDescription()" (input)="newProjectDescription.set($any($event.target).value)" placeholder="Project goals and scope..." rows="3" class="input-text"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="showNewProjectModal.set(false)">Cancel</button>
+        <button class="btn btn-primary" (click)="createProject()" [disabled]="!newProjectName().trim()">Create Project</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Manage Dependencies & Blockers -->
+  <div class="modal-backdrop" *ngIf="showDependencyModal()" (click)="closeDependencyModal()">
+    <div class="modal-box modal-dep-box" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <div class="modal-badge-row">
+            <span class="modal-badge">DEPENDENCY GRAPH & BLOCKERS</span>
+            <span class="status-pill status-pill-{{ activeDependencyTask()?.status?.toLowerCase() }}" *ngIf="activeDependencyTask() as at">
+              {{ at.status }}
+            </span>
+          </div>
+          <h3>Task Dependencies: {{ activeDependencyTask()?.title }}</h3>
+        </div>
+        <button class="btn-card-del" (click)="closeDependencyModal()" title="Close modal">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Danger Alert Banner for Cycle Detection or Guard Violations -->
+        <div class="dep-alert-banner" *ngIf="dependencyError()">
+          <div class="dep-alert-icon">⚠️</div>
+          <div class="dep-alert-body">
+            <strong class="dep-alert-title">Dependency Error</strong>
+            <p class="dep-alert-msg">{{ dependencyError() }}</p>
+          </div>
+          <button class="dep-alert-close" (click)="dependencyError.set(null)" title="Dismiss error">✕</button>
+        </div>
+
+        <!-- Section 1: Current Prerequisites -->
+        <div class="dep-section">
+          <div class="dep-section-header">
+            <div class="dep-section-title-wrap">
+              <h4>Current Prerequisites</h4>
+              <span class="dep-count-badge">{{ currentTaskDependencies().length }}</span>
+            </div>
+            <span class="dep-section-sub">Tasks that must be completed before this task can start or finish</span>
+          </div>
+
+          <!-- Loading indicator -->
+          <div class="dep-loading-box" *ngIf="dependencyLoading() && currentTaskDependencies().length === 0">
+            <span class="dep-spinner"></span>
+            <span>Loading task dependencies...</span>
+          </div>
+
+          <!-- Empty state when task has 0 prerequisites -->
+          <div class="dep-empty-box" *ngIf="!dependencyLoading() && currentTaskDependencies().length === 0">
+            <span class="dep-empty-icon">⛓️</span>
+            <div>
+              <p class="dep-empty-title">No Prerequisites Configured</p>
+              <p class="dep-empty-desc">This task has no prerequisites and is unblocked.</p>
+            </div>
+          </div>
+
+          <!-- List of existing dependencies -->
+          <div class="dep-list" *ngIf="currentTaskDependencies().length > 0">
+            <div 
+              class="dep-list-item" 
+              *ngFor="let prereq of currentTaskDependencies()"
+              [class.item-blocked]="isPrereqBlocker(prereq.id)"
+              [class.item-completed]="prereq.status === 'DONE'">
+              <div class="dep-item-info">
+                <div class="dep-item-badges">
+                  <span class="priority-tag priority-{{ prereq.priority.toLowerCase() }}">{{ prereq.priority }}</span>
+                  <span 
+                    class="dep-status-badge" 
+                    [class.status-done]="prereq.status === 'DONE'"
+                    [class.status-blocker]="prereq.status !== 'DONE'">
+                    {{ prereq.status === 'DONE' ? '✓ Completed' : '⚠️ Blocker (' + prereq.status + ')' }}
+                  </span>
+                </div>
+                <h5 class="dep-item-title">{{ prereq.title }}</h5>
+                <p class="dep-item-desc" *ngIf="prereq.description">{{ prereq.description }}</p>
+              </div>
+              <button 
+                type="button"
+                class="btn-dep-remove" 
+                (click)="removeDependencyFromActiveTask(prereq.id)" 
+                [disabled]="dependencyLoading()"
+                title="Remove prerequisite dependency">
+                ✕ Remove
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: Add Prerequisite -->
+        <div class="dep-section dep-section-add">
+          <div class="dep-section-header">
+            <h4>Add Prerequisite</h4>
+            <span class="dep-section-sub">Select another project task to establish a prerequisite dependency</span>
+          </div>
+
+          <div class="dep-info-callout">
+            <span class="callout-icon">💡</span>
+            <span>Tasks with unfinished prerequisites cannot transition to <code>IN_PROGRESS</code> or <code>DONE</code>. Circular dependencies (e.g. A → B → A) are automatically prevented by the DAG engine.</span>
+          </div>
+
+          <div class="dep-add-form">
+            <div class="select-dropdown-container dep-select-wrap">
+              <select 
+                class="select-input dep-select"
+                [value]="selectedNewDependencyId()" 
+                (change)="selectedNewDependencyId.set($any($event.target).value)"
+                [disabled]="availableDependencyCandidates().length === 0 || dependencyLoading()">
+                <option value="">-- Select a prerequisite task --</option>
+                <option *ngFor="let candidate of availableDependencyCandidates()" [value]="candidate.id">
+                  {{ candidate.title }} ({{ candidate.status }} · {{ candidate.priority }})
+                </option>
+              </select>
+              <span class="select-caret">▾</span>
+            </div>
+
+            <button 
+              type="button" 
+              class="btn btn-primary btn-add-dep" 
+              (click)="addDependencyToActiveTask()" 
+              [disabled]="!selectedNewDependencyId() || dependencyLoading()">
+              <span class="btn-icon">+</span> Add Dependency
+            </button>
+          </div>
+
+          <p class="dep-no-candidates-hint" *ngIf="availableDependencyCandidates().length === 0">
+            All other tasks in this project are already linked or no other tasks exist.
+          </p>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeDependencyModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Deletion & Danger Confirmation Modal -->
+  <div 
+    class="confirm-modal-backdrop" 
+    *ngIf="confirmDialog() as dialog"
+    (click)="closeConfirmDialog()"
+    role="dialog"
+    aria-modal="true"
+    [attr.aria-labelledby]="'confirm-dialog-title'"
+    [attr.aria-describedby]="'confirm-dialog-desc'">
+
+    <div 
+      class="confirm-modal-box" 
+      (click)="$event.stopPropagation()">
+
+      <!-- Header Section -->
+      <div class="confirm-modal-header">
+        <div class="confirm-badge-wrap">
+          <span class="danger-badge">
+            <span class="badge-icon">⚠️</span>
+            <span>DANGER ZONE</span>
+          </span>
+          <h3 id="confirm-dialog-title">{{ dialog.title || 'Delete Project' }}</h3>
+        </div>
+        
+        <button 
+          type="button" 
+          class="btn-modal-close" 
+          (click)="closeConfirmDialog()" 
+          aria-label="Close dialog"
+          title="Cancel and close">
+          ✕
+        </button>
+      </div>
+
+      <!-- Modal Body: Warning & Cascading Notice -->
+      <div class="confirm-modal-body">
+        
+        <!-- Primary Warning Callout Box -->
+        <div class="danger-callout-card">
+          <div class="danger-callout-icon" aria-hidden="true">🗑️</div>
+          <div class="danger-callout-content">
+            <p class="callout-prompt" id="confirm-dialog-desc">
+              Are you sure you want to delete 
+              <strong class="highlight-target-name">“{{ dialog.itemName }}”</strong>?
+            </p>
+            <p class="callout-subtext">
+              {{ dialog.message || 'All tasks and dependencies associated with this item will be permanently removed.' }}
+            </p>
+          </div>
+        </div>
+
+        <!-- Consequence Tag -->
+        <div class="irreversible-notice">
+          <span class="notice-bullet">●</span>
+          <span>This action is <strong>irreversible</strong> and cannot be undone.</span>
+        </div>
+      </div>
+
+      <!-- Action Buttons Footer -->
+      <div class="confirm-modal-footer">
+        <button 
+          type="button" 
+          class="btn btn-secondary btn-cancel" 
+          (click)="closeConfirmDialog()"
+          [disabled]="dialog.isProcessing">
+          Cancel
+        </button>
+
+        <button 
+          type="button" 
+          class="btn btn-danger-solid" 
+          (click)="executeConfirmAction()"
+          [disabled]="dialog.isProcessing">
+          <span class="btn-spinner" *ngIf="dialog.isProcessing"></span>
+          <span class="btn-icon" *ngIf="!dialog.isProcessing">🗑️</span>
+          <span>{{ dialog.isProcessing ? 'Deleting...' : (dialog.confirmButtonText || 'Delete Project') }}</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>

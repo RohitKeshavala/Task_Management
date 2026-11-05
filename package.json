@@ -1,0 +1,16 @@
+{
+  "name": "boost-action-learning-taskflow",
+  "version": "1.0.0",
+  "description": "TaskFlow: Full-Stack Angular + Node.js Express demo project for mastering Antigravity /boost action",
+  "scripts": {
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend start",
+    "test:backend": "npm --prefix backend test",
+    "build:backend": "npm --prefix backend run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "gsd": "node .agents/gsd-core/bin/gsd-tools.cjs",
+    "gsd-tools": "node .agents/gsd-core/bin/gsd-tools.cjs"
+  },
+  "keywords": ["antigravity", "boost", "angular", "express", "sqlite"]
+}
+

@@ -1,0 +1,986 @@
+import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { TaskFlowService } from './services/taskflow.service';
+import { Project, Task, TaskPriority, TaskStatus, Tag } from './models/taskflow.model';
+
+export interface CalendarCell {
+  day: number;
+  dateString: string;
+  isCurrentMonth: boolean;
+  isToday: boolean;
+  isSelected: boolean;
+  isPast: boolean;
+}
+
+export interface AppNotification {
+  type: 'danger' | 'warning' | 'info' | 'success';
+  title: string;
+  message: string;
+  badgeText?: string;
+  icon?: string;
+  blockers?: string[];
+  durationMs?: number;
+}
+
+export interface ConfirmDialogState {
+  type: 'project' | 'task';
+  id: string;
+  title: string;
+  itemName: string;
+  message?: string;
+  confirmButtonText?: string;
+  isProcessing?: boolean;
+}
+
+export function formatDateToISO(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [CommonModule, FormsModule],
+  templateUrl: './app.html',
+  styleUrl: './app.css'
+})
+export class App implements OnInit {
+  private service = inject(TaskFlowService);
+
+  // Dual theme state ('dark' | 'light')
+  currentTheme = signal<'dark' | 'light'>('dark');
+  isDarkTheme = computed(() => this.currentTheme() === 'dark');
+
+  // Core state
+  projects = signal<Project[]>([]);
+  selectedProjectId = signal<string>('');
+  tasks = signal<Task[]>([]);
+  allTags = signal<Tag[]>([]);
+  selectedTagFilter = signal<string>('');
+  selectedPriorityFilter = signal<TaskPriority | ''>('');
+  activeFilterCount = computed<number>(() => {
+    let count = 0;
+    if (this.selectedPriorityFilter()) count++;
+    if (this.selectedTagFilter()) count++;
+    return count;
+  });
+  loading = signal<boolean>(false);
+  errorMessage = signal<string | null>(null);
+
+  // Drag and Drop state
+  draggedTask = signal<Task | null>(null);
+  draggedTaskId = computed(() => this.draggedTask()?.id || null);
+  dragOverColumn = signal<TaskStatus | null>(null);
+  dragCounts: Record<TaskStatus, number> = {
+    TODO: 0,
+    IN_PROGRESS: 0,
+    DONE: 0,
+  };
+
+  // Modals state
+  showNewTaskModal = signal<boolean>(false);
+  showNewProjectModal = signal<boolean>(false);
+  showDependencyModal = signal<boolean>(false);
+
+  // Top Floating Notification State (replaces native alert)
+  activeNotification = signal<AppNotification | null>(null);
+  private notificationTimer: any = null;
+
+  // Custom Danger Confirmation Modal State (replaces native confirm)
+  confirmDialog = signal<ConfirmDialogState | null>(null);
+
+  // New task form fields
+  newTaskTitle = signal<string>('');
+  newTaskDescription = signal<string>('');
+  newTaskPriority = signal<TaskPriority>('MEDIUM');
+  newTaskDueDate = signal<string>('');
+  selectedTagIds = signal<string[]>([]);
+  selectedDependsOnTaskIds = signal<string[]>([]);
+
+  // Validation state: disallow past dates for new tasks
+  minSelectableDate = computed<string>(() => formatDateToISO(new Date()));
+  dateValidationError = signal<string | null>(null);
+
+  // Interactive Calendar Popover State
+  showCalendarPicker = signal<boolean>(false);
+  calendarViewDate = signal<Date>(new Date());
+
+  calendarMonthYearLabel = computed<string>(() => {
+    const d = this.calendarViewDate();
+    return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  });
+
+  calendarDays = computed<CalendarCell[]>(() => {
+    const viewDate = this.calendarViewDate();
+    const year = viewDate.getFullYear();
+    const month = viewDate.getMonth();
+    const selectedDateStr = this.newTaskDueDate();
+    const todayStr = formatDateToISO(new Date());
+
+    const firstDayOfMonth = new Date(year, month, 1);
+    // ISO weekday index: Monday=0, Sunday=6
+    const startDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7;
+
+    const daysInCurrentMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+    const cells: CalendarCell[] = [];
+
+    // Previous month padding days
+    for (let i = startDayOfWeek - 1; i >= 0; i--) {
+      const day = daysInPrevMonth - i;
+      const d = new Date(year, month - 1, day);
+      const dateStr = formatDateToISO(d);
+      cells.push({
+        day,
+        dateString: dateStr,
+        isCurrentMonth: false,
+        isToday: dateStr === todayStr,
+        isSelected: dateStr === selectedDateStr,
+        isPast: dateStr < todayStr
+      });
+    }
+
+    // Current month days
+    for (let day = 1; day <= daysInCurrentMonth; day++) {
+      const d = new Date(year, month, day);
+      const dateStr = formatDateToISO(d);
+      cells.push({
+        day,
+        dateString: dateStr,
+        isCurrentMonth: true,
+        isToday: dateStr === todayStr,
+        isSelected: dateStr === selectedDateStr,
+        isPast: dateStr < todayStr
+      });
+    }
+
+    // Next month padding days (filling either 35 or 42 grid cells)
+    const totalSlots = cells.length > 35 ? 42 : 35;
+    const remaining = totalSlots - cells.length;
+    for (let day = 1; day <= remaining; day++) {
+      const d = new Date(year, month + 1, day);
+      const dateStr = formatDateToISO(d);
+      cells.push({
+        day,
+        dateString: dateStr,
+        isCurrentMonth: false,
+        isToday: dateStr === todayStr,
+        isSelected: dateStr === selectedDateStr,
+        isPast: dateStr < todayStr
+      });
+    }
+
+    return cells;
+  });
+
+  // Dependency modal state
+  activeDependencyTask = signal<Task | null>(null);
+  currentTaskDependencies = signal<Task[]>([]);
+  currentTaskBlockers = signal<Task[]>([]);
+  selectedNewDependencyId = signal<string>('');
+  dependencyError = signal<string | null>(null);
+  dependencyLoading = signal<boolean>(false);
+
+  // Inline tag creation fields
+  newTagName = signal<string>('');
+  newTagColor = signal<string>('#3b82f6');
+  colorPalette = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#06b6d4'];
+
+  // New project form fields
+  newProjectName = signal<string>('');
+  newProjectDescription = signal<string>('');
+
+  // Computed columns
+  selectedProject = computed(() => 
+    this.projects().find(p => p.id === this.selectedProjectId()) || null
+  );
+
+  todoTasks = computed(() => 
+    this.tasks().filter(t => t.status === 'TODO')
+  );
+
+  inProgressTasks = computed(() => 
+    this.tasks().filter(t => t.status === 'IN_PROGRESS')
+  );
+
+  doneTasks = computed(() => 
+    this.tasks().filter(t => t.status === 'DONE')
+  );
+
+  // Candidate prerequisites available when creating a new task
+  availableNewTaskPrerequisites = computed(() => 
+    this.tasks()
+  );
+
+  // Candidate tasks available to add as prerequisites for activeDependencyTask
+  availableDependencyCandidates = computed(() => {
+    const active = this.activeDependencyTask();
+    if (!active) return [];
+    const currentDepIds = new Set(this.currentTaskDependencies().map(d => d.id));
+    return this.tasks().filter(t => t.id !== active.id && !currentDepIds.has(t.id));
+  });
+
+  ngOnInit(): void {
+    this.initTheme();
+    this.loadProjects();
+    this.loadTags();
+  }
+
+  initTheme(): void {
+    let savedTheme: 'dark' | 'light' = 'dark';
+    try {
+      const stored = localStorage.getItem('taskflow_theme');
+      if (stored === 'light' || stored === 'dark') {
+        savedTheme = stored;
+      }
+    } catch (e) {
+      // localStorage may fail in restricted test contexts
+    }
+    this.setTheme(savedTheme);
+  }
+
+  toggleTheme(): void {
+    const nextTheme: 'dark' | 'light' = this.currentTheme() === 'dark' ? 'light' : 'dark';
+    this.setTheme(nextTheme);
+  }
+
+  setTheme(theme: 'dark' | 'light'): void {
+    this.currentTheme.set(theme);
+    try {
+      localStorage.setItem('taskflow_theme', theme);
+    } catch (e) {
+      // ignore
+    }
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', theme);
+      if (theme === 'light') {
+        document.body.classList.add('light-theme');
+        document.body.classList.remove('dark-theme');
+      } else {
+        document.body.classList.add('dark-theme');
+        document.body.classList.remove('light-theme');
+      }
+    }
+  }
+
+  loadProjects(): void {
+    this.loading.set(true);
+    this.errorMessage.set(null);
+    this.service.getProjects().subscribe({
+      next: (projs) => {
+        this.projects.set(projs);
+        if (projs.length > 0 && !this.selectedProjectId()) {
+          this.selectedProjectId.set(projs[0].id);
+          this.loadTasks();
+        } else {
+          this.loading.set(false);
+        }
+      },
+      error: (err) => {
+        this.errorMessage.set('Cannot connect to backend at http://localhost:3000. Is it running?');
+        this.loading.set(false);
+      }
+    });
+  }
+
+  loadTags(): void {
+    this.service.getTags().subscribe({
+      next: (tags) => {
+        this.allTags.set(tags);
+      },
+      error: (err) => {
+        console.warn('Could not load tags:', err);
+      }
+    });
+  }
+
+  loadTasks(): void {
+    const projId = this.selectedProjectId();
+    if (!projId) return;
+
+    this.loading.set(true);
+    const filters: { projectId: string; tagId?: string; priority?: string } = { projectId: projId };
+    if (this.selectedTagFilter()) {
+      filters.tagId = this.selectedTagFilter();
+    }
+    if (this.selectedPriorityFilter()) {
+      filters.priority = this.selectedPriorityFilter();
+    }
+
+    this.service.getTasks(filters).subscribe({
+      next: (taskList) => {
+        this.tasks.set(taskList);
+        this.loading.set(false);
+      },
+      error: (err) => {
+        this.errorMessage.set('Failed to load tasks.');
+        this.loading.set(false);
+      }
+    });
+  }
+
+  onProjectChange(id: string): void {
+    this.selectedProjectId.set(id);
+    this.selectedTagFilter.set('');
+    this.selectedPriorityFilter.set('');
+    this.loadTasks();
+  }
+
+  setTagFilter(tagId: string): void {
+    if (this.selectedTagFilter() === tagId) {
+      this.selectedTagFilter.set('');
+    } else {
+      this.selectedTagFilter.set(tagId);
+    }
+    this.loadTasks();
+  }
+
+  setPriorityFilter(priority: TaskPriority | ''): void {
+    if (this.selectedPriorityFilter() === priority) {
+      this.selectedPriorityFilter.set('');
+    } else {
+      this.selectedPriorityFilter.set(priority);
+    }
+    this.loadTasks();
+  }
+
+  clearAllFilters(): void {
+    this.selectedPriorityFilter.set('');
+    this.selectedTagFilter.set('');
+    this.loadTasks();
+  }
+
+  openNewTaskModal(): void {
+    this.selectedTagIds.set([]);
+    this.selectedDependsOnTaskIds.set([]);
+    this.newTagName.set('');
+    this.newTagColor.set('#3b82f6');
+    this.showCalendarPicker.set(false);
+    this.calendarViewDate.set(new Date());
+    this.dateValidationError.set(null);
+    this.showNewTaskModal.set(true);
+  }
+
+  // Interactive Calendar & Quick-Preset Methods
+  toggleCalendarPicker(): void {
+    const next = !this.showCalendarPicker();
+    if (next && this.newTaskDueDate()) {
+      const [y, m, d] = this.newTaskDueDate().split('-').map(Number);
+      if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+        this.calendarViewDate.set(new Date(y, m - 1, d));
+      }
+    } else if (next) {
+      this.calendarViewDate.set(new Date());
+    }
+    this.showCalendarPicker.set(next);
+  }
+
+  prevMonth(): void {
+    const current = this.calendarViewDate();
+    this.calendarViewDate.set(new Date(current.getFullYear(), current.getMonth() - 1, 1));
+  }
+
+  nextMonth(): void {
+    const current = this.calendarViewDate();
+    this.calendarViewDate.set(new Date(current.getFullYear(), current.getMonth() + 1, 1));
+  }
+
+  selectCalendarDate(dateStr: string): void {
+    if (dateStr < this.minSelectableDate()) {
+      this.dateValidationError.set('Due date cannot be in the past for new tasks.');
+      return;
+    }
+    this.dateValidationError.set(null);
+    this.newTaskDueDate.set(dateStr);
+    const [y, m, d] = dateStr.split('-').map(Number);
+    if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+      this.calendarViewDate.set(new Date(y, m - 1, d));
+    }
+  }
+
+  setDatePreset(preset: 'today' | 'tomorrow' | 'nextWeek' | 'clear'): void {
+    if (preset === 'clear') {
+      this.newTaskDueDate.set('');
+      this.dateValidationError.set(null);
+      return;
+    }
+    const d = new Date();
+    if (preset === 'tomorrow') {
+      d.setDate(d.getDate() + 1);
+    } else if (preset === 'nextWeek') {
+      d.setDate(d.getDate() + 7);
+    }
+    const dateStr = formatDateToISO(d);
+    this.newTaskDueDate.set(dateStr);
+    this.dateValidationError.set(null);
+    this.calendarViewDate.set(new Date(d));
+  }
+
+  onDueDateInput(val: string): void {
+    this.newTaskDueDate.set(val);
+    if (!val) {
+      this.dateValidationError.set(null);
+      return;
+    }
+    if (val < this.minSelectableDate()) {
+      this.dateValidationError.set('Due date cannot be in the past for new tasks.');
+    } else {
+      this.dateValidationError.set(null);
+    }
+    const [y, m, d] = val.split('-').map(Number);
+    if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+      this.calendarViewDate.set(new Date(y, m - 1, d));
+    }
+  }
+
+  isPresetActive(preset: 'today' | 'tomorrow' | 'nextWeek'): boolean {
+    const current = this.newTaskDueDate();
+    if (!current) return false;
+    const d = new Date();
+    if (preset === 'tomorrow') {
+      d.setDate(d.getDate() + 1);
+    } else if (preset === 'nextWeek') {
+      d.setDate(d.getDate() + 7);
+    }
+    return current === formatDateToISO(d);
+  }
+
+  toggleTagSelection(tagId: string): void {
+    const current = this.selectedTagIds();
+    if (current.includes(tagId)) {
+      this.selectedTagIds.set(current.filter(id => id !== tagId));
+    } else {
+      this.selectedTagIds.set([...current, tagId]);
+    }
+  }
+
+  isTagSelected(tagId: string): boolean {
+    return this.selectedTagIds().includes(tagId);
+  }
+
+  toggleNewTaskDependency(taskId: string): void {
+    const current = this.selectedDependsOnTaskIds();
+    if (current.includes(taskId)) {
+      this.selectedDependsOnTaskIds.set(current.filter(id => id !== taskId));
+    } else {
+      this.selectedDependsOnTaskIds.set([...current, taskId]);
+    }
+  }
+
+  isNewTaskDependencySelected(taskId: string): boolean {
+    return this.selectedDependsOnTaskIds().includes(taskId);
+  }
+
+  // Dependency Management Modal Methods
+  openDependencyModal(task: Task): void {
+    this.activeDependencyTask.set(task);
+    this.dependencyError.set(null);
+    this.selectedNewDependencyId.set('');
+    this.showDependencyModal.set(true);
+    this.loadDependenciesAndBlockers(task.id);
+  }
+
+  closeDependencyModal(): void {
+    this.showDependencyModal.set(false);
+    this.activeDependencyTask.set(null);
+    this.dependencyError.set(null);
+    this.selectedNewDependencyId.set('');
+    this.currentTaskDependencies.set([]);
+    this.currentTaskBlockers.set([]);
+  }
+
+  loadDependenciesAndBlockers(taskId: string): void {
+    this.dependencyLoading.set(true);
+    this.service.getTaskDependencies(taskId).subscribe({
+      next: (deps) => {
+        this.currentTaskDependencies.set(deps);
+        this.service.getTaskBlockers(taskId).subscribe({
+          next: (blockers) => {
+            this.currentTaskBlockers.set(blockers);
+            this.dependencyLoading.set(false);
+          },
+          error: (err) => {
+            console.warn('Could not load blockers:', err);
+            this.dependencyLoading.set(false);
+          }
+        });
+      },
+      error: (err) => {
+        this.dependencyError.set('Failed to load dependencies: ' + (err.error?.error || err.message));
+        this.dependencyLoading.set(false);
+      }
+    });
+  }
+
+  addDependencyToActiveTask(): void {
+    const active = this.activeDependencyTask();
+    const depId = this.selectedNewDependencyId();
+    if (!active || !depId) return;
+
+    this.dependencyLoading.set(true);
+    this.dependencyError.set(null);
+
+    this.service.addTaskDependency(active.id, depId).subscribe({
+      next: () => {
+        this.selectedNewDependencyId.set('');
+        this.loadDependenciesAndBlockers(active.id);
+        this.loadTasks(); // Refreshes task list & updated dependsOnTaskIds
+      },
+      error: (err) => {
+        this.dependencyLoading.set(false);
+        let errorMsg = 'Failed to add dependency';
+        if (err.error?.cyclePath && Array.isArray(err.error.cyclePath)) {
+          errorMsg = `Circular dependency detected: ${err.error.cyclePath.join(' → ')}`;
+        } else if (err.error?.error) {
+          errorMsg = err.error.error;
+        } else if (err.error?.message) {
+          errorMsg = err.error.message;
+        } else if (err.message) {
+          errorMsg = err.message;
+        }
+        this.dependencyError.set(errorMsg);
+      }
+    });
+  }
+
+  removeDependencyFromActiveTask(depId: string): void {
+    const active = this.activeDependencyTask();
+    if (!active) return;
+
+    this.dependencyLoading.set(true);
+    this.dependencyError.set(null);
+
+    this.service.removeTaskDependency(active.id, depId).subscribe({
+      next: () => {
+        this.loadDependenciesAndBlockers(active.id);
+        this.loadTasks(); // Refreshes task list & updated dependsOnTaskIds
+      },
+      error: (err) => {
+        this.dependencyLoading.set(false);
+        this.dependencyError.set('Failed to remove dependency: ' + (err.error?.error || err.message));
+      }
+    });
+  }
+
+  getBlockerCount(task: Task): number {
+    if (!task.dependsOnTaskIds || task.dependsOnTaskIds.length === 0) return 0;
+    const allTasks = this.tasks();
+    return task.dependsOnTaskIds.filter(id => {
+      const depTask = allTasks.find(t => t.id === id);
+      return depTask ? depTask.status !== 'DONE' : false;
+    }).length;
+  }
+
+  isPrereqBlocker(prereqId: string): boolean {
+    return this.currentTaskBlockers().some(b => b.id === prereqId);
+  }
+
+  isTaskOverdue(task: Task): boolean {
+    if (!task || task.status === 'DONE' || !task.dueDate) {
+      return false;
+    }
+
+    const now = new Date();
+    const dueDateStr = task.dueDate.trim();
+
+    // If task.dueDate is in YYYY-MM-DD format (without time),
+    // compare against the end of that local calendar day (23:59:59.999).
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dueDateStr)) {
+      const [y, m, d] = dueDateStr.split('-').map(Number);
+      if (!isNaN(y) && !isNaN(m) && !isNaN(d)) {
+        const endOfDay = new Date(y, m - 1, d, 23, 59, 59, 999);
+        return now.getTime() > endOfDay.getTime();
+      }
+    }
+
+    // If task.dueDate contains ISO timestamp or other parseable date string
+    const parsed = new Date(dueDateStr);
+    if (isNaN(parsed.getTime())) {
+      return false;
+    }
+
+    return now.getTime() > parsed.getTime();
+  }
+
+  isDueToday(task: Task): boolean {
+    if (!task || task.status === 'DONE' || !task.dueDate || this.isTaskOverdue(task)) {
+      return false;
+    }
+
+    const now = new Date();
+    const dueDateStr = task.dueDate.trim();
+    const todayStr = formatDateToISO(now);
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dueDateStr)) {
+      return dueDateStr === todayStr;
+    }
+
+    const parsed = new Date(dueDateStr);
+    if (isNaN(parsed.getTime())) {
+      return false;
+    }
+
+    return formatDateToISO(parsed) === todayStr;
+  }
+
+  createNewTag(): void {
+    const name = this.newTagName().trim();
+    if (!name) return;
+    const color = this.newTagColor() || '#3b82f6';
+
+    const existing = this.allTags().find(t => t.name.toLowerCase() === name.toLowerCase());
+    if (existing) {
+      if (!this.selectedTagIds().includes(existing.id)) {
+        this.selectedTagIds.update(ids => [...ids, existing.id]);
+      }
+      this.newTagName.set('');
+      return;
+    }
+
+    this.service.createTag({ name, color }).subscribe({
+      next: (tag) => {
+        this.allTags.update(list => [...list, tag]);
+        this.selectedTagIds.update(ids => [...ids, tag.id]);
+        this.newTagName.set('');
+      },
+      error: (err) => {
+        this.showNotification({
+          type: 'danger',
+          title: 'Tag Creation Failed',
+          message: 'Failed to create tag: ' + (err.error?.error || err.message),
+          durationMs: 5000
+        });
+      }
+    });
+  }
+
+  createProject(): void {
+    const name = this.newProjectName().trim();
+    if (!name) return;
+
+    this.service.createProject({
+      name,
+      description: this.newProjectDescription().trim(),
+    }).subscribe({
+      next: (created) => {
+        this.projects.update(list => [created, ...list]);
+        this.selectedProjectId.set(created.id);
+        this.selectedTagFilter.set('');
+        this.selectedPriorityFilter.set('');
+        this.newProjectName.set('');
+        this.newProjectDescription.set('');
+        this.showNewProjectModal.set(false);
+        this.loadTasks();
+      },
+      error: (err) => {
+        this.showNotification({
+          type: 'danger',
+          title: 'Project Creation Failed',
+          message: 'Failed to create project: ' + (err.error?.error || err.message),
+          durationMs: 5000
+        });
+      }
+    });
+  }
+
+  createTask(): void {
+    const projId = this.selectedProjectId();
+    const title = this.newTaskTitle().trim();
+    if (!projId || !title) return;
+
+    const dueDateVal = this.newTaskDueDate();
+    if (dueDateVal && dueDateVal < this.minSelectableDate()) {
+      this.dateValidationError.set('Due date cannot be in the past for new tasks.');
+      return;
+    }
+
+    this.service.createTask({
+      projectId: projId,
+      title,
+      description: this.newTaskDescription().trim(),
+      priority: this.newTaskPriority(),
+      status: 'TODO',
+      dueDate: dueDateVal ? dueDateVal : null,
+      tagIds: this.selectedTagIds(),
+      dependsOnTaskIds: this.selectedDependsOnTaskIds(),
+    }).subscribe({
+      next: (created) => {
+        const activeTag = this.selectedTagFilter();
+        const activePriority = this.selectedPriorityFilter();
+        const matchesTag = !activeTag || created.tags?.some(t => t.id === activeTag);
+        const matchesPriority = !activePriority || created.priority === activePriority;
+
+        if (matchesTag && matchesPriority) {
+          this.tasks.update(list => [created, ...list]);
+        } else {
+          this.selectedTagFilter.set('');
+          this.selectedPriorityFilter.set('');
+          this.loadTasks();
+        }
+        this.newTaskTitle.set('');
+        this.newTaskDescription.set('');
+        this.newTaskPriority.set('MEDIUM');
+        this.newTaskDueDate.set('');
+        this.dateValidationError.set(null);
+        this.selectedTagIds.set([]);
+        this.selectedDependsOnTaskIds.set([]);
+        this.newTagName.set('');
+        this.showCalendarPicker.set(false);
+        this.showNewTaskModal.set(false);
+      },
+      error: (err) => {
+        this.showNotification({
+          type: 'danger',
+          title: 'Task Creation Failed',
+          message: 'Failed to create task: ' + (err.error?.error || err.message),
+          durationMs: 5000
+        });
+      }
+    });
+  }
+
+  updateStatus(task: Task, newStatus: TaskStatus): void {
+    const previousStatus = task.status;
+    if (previousStatus === newStatus) return;
+
+    // Optimistically update status in local signal state
+    this.tasks.update(list => list.map(t => t.id === task.id ? { ...t, status: newStatus } : t));
+
+    this.service.updateTaskStatus(task.id, newStatus).subscribe({
+      next: (updated) => {
+        this.tasks.update(list => list.map(t => t.id === updated.id ? updated : t));
+      },
+      error: (err) => {
+        // Roll back optimistic update if request fails
+        this.tasks.update(list => list.map(t => t.id === task.id ? { ...t, status: previousStatus } : t));
+        const errorObj = err.error || {};
+        const message = errorObj.message || errorObj.error || err.message || 'Unknown error';
+        const blockerTasks = errorObj.blockingTasks || [];
+        const blockerNames: string[] = blockerTasks.map((b: any) => 
+          b.title ? `${b.title} (${b.status})` : `${b.id} (${b.status})`
+        );
+
+        this.showNotification({
+          type: 'danger',
+          title: 'Status Transition Blocked',
+          message,
+          badgeText: 'PREREQUISITE GUARD',
+          icon: '🛑',
+          blockers: blockerNames,
+          durationMs: 7000
+        });
+      }
+    });
+  }
+
+  // Drag and Drop handlers
+  onDragStart(event: DragEvent, task: Task): void {
+    if (event.dataTransfer) {
+      event.dataTransfer.setData('text/plain', task.id);
+      event.dataTransfer.effectAllowed = 'move';
+    }
+    this.draggedTask.set(task);
+  }
+
+  onDragEnter(event: DragEvent, status: TaskStatus): void {
+    event.preventDefault();
+    this.dragCounts[status] = (this.dragCounts[status] || 0) + 1;
+    // Highlight only if dragging a task to a different status column
+    if (this.draggedTask() && this.draggedTask()?.status !== status) {
+      this.dragOverColumn.set(status);
+    } else if (!this.draggedTask()) {
+      this.dragOverColumn.set(status);
+    }
+  }
+
+  onDragOver(event: DragEvent, status: TaskStatus): void {
+    event.preventDefault();
+    if (this.draggedTask() && this.draggedTask()?.status === status) {
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = 'none';
+      }
+      return;
+    }
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = 'move';
+    }
+    if (this.dragOverColumn() !== status) {
+      this.dragOverColumn.set(status);
+    }
+  }
+
+  onDragLeave(event: DragEvent, status: TaskStatus): void {
+    const currentTarget = event.currentTarget as HTMLElement | null;
+    const relatedTarget = event.relatedTarget as Node | null;
+    if (currentTarget && relatedTarget && currentTarget.contains(relatedTarget)) {
+      return;
+    }
+    this.dragCounts[status] = Math.max(0, (this.dragCounts[status] || 0) - 1);
+    if (this.dragCounts[status] === 0 && this.dragOverColumn() === status) {
+      this.dragOverColumn.set(null);
+    }
+  }
+
+  onDragEnd(): void {
+    this.draggedTask.set(null);
+    this.dragOverColumn.set(null);
+    this.dragCounts = { TODO: 0, IN_PROGRESS: 0, DONE: 0 };
+  }
+
+  onDrop(event: DragEvent, targetStatus: TaskStatus): void {
+    event.preventDefault();
+    this.dragCounts[targetStatus] = 0;
+    this.dragOverColumn.set(null);
+
+    const transferredId = event.dataTransfer?.getData('text/plain');
+    let task: Task | null = null;
+    if (transferredId) {
+      task = this.tasks().find(t => t.id === transferredId) || null;
+    }
+    if (!task && this.draggedTask()) {
+      task = this.draggedTask();
+    }
+    this.draggedTask.set(null);
+
+    if (!task) return;
+    if (task.status !== targetStatus) {
+      this.updateStatus(task, targetStatus);
+    }
+  }
+
+  showNotification(notif: AppNotification): void {
+    if (this.notificationTimer) {
+      clearTimeout(this.notificationTimer);
+      this.notificationTimer = null;
+    }
+    const duration = notif.durationMs ?? 7000;
+    this.activeNotification.set({ ...notif, durationMs: duration });
+
+    if (duration > 0) {
+      this.notificationTimer = setTimeout(() => {
+        this.dismissNotification();
+      }, duration);
+    }
+  }
+
+  dismissNotification(): void {
+    if (this.notificationTimer) {
+      clearTimeout(this.notificationTimer);
+      this.notificationTimer = null;
+    }
+    this.activeNotification.set(null);
+  }
+
+  openDeleteProjectConfirm(projectId?: string): void {
+    const id = projectId || this.selectedProjectId();
+    if (!id) return;
+    const project = this.projects().find(p => p.id === id);
+    const name = project?.name || 'Current Project';
+
+    this.confirmDialog.set({
+      type: 'project',
+      id,
+      title: 'Delete Project',
+      itemName: name,
+      message: 'All tasks, tags, and dependencies associated with this project will be permanently removed.',
+      confirmButtonText: 'Delete Project',
+      isProcessing: false
+    });
+  }
+
+  openDeleteTaskConfirm(task: Task): void {
+    this.confirmDialog.set({
+      type: 'task',
+      id: task.id,
+      title: 'Delete Task',
+      itemName: task.title,
+      message: 'This task will be permanently removed from the project board along with any dependent links.',
+      confirmButtonText: 'Delete Task',
+      isProcessing: false
+    });
+  }
+
+  closeConfirmDialog(): void {
+    this.confirmDialog.set(null);
+  }
+
+  executeConfirmAction(): void {
+    const state = this.confirmDialog();
+    if (!state || state.isProcessing) return;
+
+    this.confirmDialog.update(s => s ? { ...s, isProcessing: true } : null);
+
+    if (state.type === 'project') {
+      this.service.deleteProject(state.id).subscribe({
+        next: () => {
+          this.closeConfirmDialog();
+          const remaining = this.projects().filter(p => p.id !== state.id);
+          this.projects.set(remaining);
+          if (remaining.length > 0) {
+            this.selectedProjectId.set(remaining[0].id);
+            this.selectedTagFilter.set('');
+            this.selectedPriorityFilter.set('');
+            this.loadTasks();
+          } else {
+            this.selectedProjectId.set('');
+            this.tasks.set([]);
+          }
+          this.showNotification({
+            type: 'success',
+            title: 'Project Deleted',
+            message: `Project "${state.itemName}" was deleted successfully.`,
+            icon: '✓',
+            durationMs: 4000
+          });
+        },
+        error: (err) => {
+          this.closeConfirmDialog();
+          this.showNotification({
+            type: 'danger',
+            title: 'Deletion Failed',
+            message: 'Failed to delete project: ' + (err.error?.error || err.message),
+            durationMs: 6000
+          });
+        }
+      });
+    } else if (state.type === 'task') {
+      this.service.deleteTask(state.id).subscribe({
+        next: () => {
+          this.closeConfirmDialog();
+          this.tasks.update(list => list.filter(t => t.id !== state.id));
+          this.showNotification({
+            type: 'success',
+            title: 'Task Deleted',
+            message: `Task "${state.itemName}" was removed successfully.`,
+            icon: '✓',
+            durationMs: 4000
+          });
+        },
+        error: (err) => {
+          this.closeConfirmDialog();
+          this.showNotification({
+            type: 'danger',
+            title: 'Deletion Failed',
+            message: 'Failed to delete task: ' + (err.error?.error || err.message),
+            durationMs: 6000
+          });
+        }
+      });
+    }
+  }
+
+  deleteTask(id: string): void {
+    const task = this.tasks().find(t => t.id === id);
+    if (task) {
+      this.openDeleteTaskConfirm(task);
+    }
+  }
+
+  deleteProject(id?: string): void {
+    this.openDeleteProjectConfirm(id);
+  }
+}
