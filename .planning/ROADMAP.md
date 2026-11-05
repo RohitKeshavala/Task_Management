@@ -18,6 +18,7 @@ This roadmap delivers Role-Based Access Control (RBAC) to TaskFlow across backen
 ### Phase 1: Backend RBAC Middleware & Permission Guards
 **Goal**: Enforce role-based access control across all project and task endpoints using `x-user-role` header with zero regressions.
 **Mode:** mvp
+**UI hint**: no
 **Depends on**: Nothing (first phase)
 **Requirements**: RBAC-01, RBAC-02, RBAC-03, RBAC-04, RBAC-05, TEST-01, TEST-02
 **Success Criteria** (what must be TRUE):
@@ -35,7 +36,7 @@ Plans:
 ### Phase 2: Frontend User Profile & Role Context
 **Goal**: Create a standalone User Profile component separated from `app.ts`, integrate it into the header, and adapt the UI to the active role.
 **Mode:** mvp
-**UI hint:** yes
+**UI hint**: yes
 **Depends on**: Phase 1
 **Requirements**: PROF-01, PROF-02, PROF-03, PROF-04, PROF-05
 **Success Criteria** (what must be TRUE):
