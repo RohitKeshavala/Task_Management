@@ -36,6 +36,7 @@ export class ProfileComponent implements OnInit {
   get displayName(): string {
     return this.currentUser()?.username || 'Alex Mercer';
   }
+  
 
   get userInitials(): string {
     const parts = this.displayName.trim().split(/\s+/);
