@@ -1,4 +1,4 @@
-import { Component, input, output, DestroyRef, inject } from '@angular/core';
+import { Component, input, output, DestroyRef, inject, signal } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { interval, switchMap, EMPTY } from 'rxjs';
@@ -24,22 +24,28 @@ export class ProfileComponent {
   logout = output<void>();
   configureGovernance = output<void>();
 
-  // Real-time session elapsed counter
-  sessionSeconds = 0;
+  // Real-time session elapsed counter tracked via reactive signal
+  readonly sessionSeconds = signal<number>(0);
 
   // User status message and focus tagline (safe text properties)
   statusHeadline = 'Active on Sprint Milestones';
   statusMessage = 'Reviewing open PRs';
 
   constructor() {
-    // Only tick when modal is actively open, preventing unthrottled background change detection cycles
+    // Only tick when modal is actively open and reset timer to 0 on each modal opening
     toObservable(this.isOpen)
       .pipe(
-        switchMap(open => (open ? interval(1000) : EMPTY)),
+        switchMap(open => {
+          if (open) {
+            this.sessionSeconds.set(0);
+            return interval(1000);
+          }
+          return EMPTY;
+        }),
         takeUntilDestroyed(this.destroyRef)
       )
       .subscribe(() => {
-        this.sessionSeconds++;
+        this.sessionSeconds.update(s => s + 1);
       });
   }
 
@@ -74,8 +80,9 @@ export class ProfileComponent {
 
   // Format session uptime into mm:ss display
   get sessionDurationDisplay(): string {
-    const mins = Math.floor(this.sessionSeconds / 60);
-    const secs = this.sessionSeconds % 60;
+    const total = this.sessionSeconds();
+    const mins = Math.floor(total / 60);
+    const secs = total % 60;
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   }
 
