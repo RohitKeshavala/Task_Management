@@ -63,7 +63,7 @@ export class ProfileComponent {
     }
     return parts[0] ? Array.from(parts[0]).slice(0, 2).join('').toUpperCase() : 'U';
   }
-  
+
 
   get displayEmail(): string {
     return this.currentUser()?.email || 'alex.mercer@taskflow.dev';
@@ -78,6 +78,7 @@ export class ProfileComponent {
     }
     return 'March 2024';
   }
+  
 
   // Format session uptime into mm:ss display
   get sessionDurationDisplay(): string {
