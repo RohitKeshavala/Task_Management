@@ -22,7 +22,6 @@ jobs:
     # -----------------------------------------------------------------------------------------
     with:
       target-path: 'frontend'              # Only analyze frontend code
-      gemini-model: 'gemini-2.5-flash'     # Gemini model to use
       fail-on-changes: false              # Set to true if you want CI to fail on CHANGES_REQUESTED
     secrets:
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
