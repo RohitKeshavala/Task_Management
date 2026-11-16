@@ -58,8 +58,10 @@
           <span class="activity-label">Status & Bio</span>
           <span class="live-pulse-badge">Live</span>
         </div>
-        <!-- Render custom status formatted message -->
-        <div class="status-rich-content" [innerHTML]="customStatusHtml"></div>
+        <!-- Render status message safely using Angular interpolation -->
+        <div class="status-rich-content">
+          <span class="status-highlight">🚀 {{ statusHeadline }}</span> — {{ statusMessage }}
+        </div>
       </div>
 
       <div class="session-metric-card">

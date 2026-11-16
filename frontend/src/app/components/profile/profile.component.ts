@@ -23,8 +23,9 @@ export class ProfileComponent implements OnInit {
   // Real-time session elapsed counter
   sessionSeconds = 0;
 
-  // Custom user status message supporting rich formatting
-  customStatusHtml: string = '<span class="status-highlight">🚀 Active on Sprint Milestones</span> — Reviewing open PRs';
+  // User status message and focus tagline (safe text properties)
+  statusHeadline = 'Active on Sprint Milestones';
+  statusMessage = 'Reviewing open PRs';
 
   ngOnInit(): void {
     // Track active session uptime while profile dialog is open
@@ -67,9 +68,9 @@ export class ProfileComponent implements OnInit {
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   }
 
-  // Permission check for configuring workspace settings and policies
+  // Permission check for configuring workspace settings and policies (Admin only)
   get canManageWorkspaceSettings(): boolean {
-    return this.activeRole() === 'VIEWER';
+    return this.activeRole() === 'ADMIN';
   }
 
   get roleCapabilities(): string[] {
