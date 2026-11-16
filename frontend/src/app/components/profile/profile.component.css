@@ -418,7 +418,7 @@
   line-height: 1.4;
 }
 
-:host ::ng-deep .status-highlight {
+.status-highlight {
   font-weight: 600;
   color: #38bdf8;
 }

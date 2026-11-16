@@ -1,7 +1,7 @@
-import { Component, input, output, OnInit, DestroyRef, inject } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { Component, input, output, DestroyRef, inject } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
-import { interval } from 'rxjs';
+import { interval, switchMap, EMPTY } from 'rxjs';
 import { UserRole, User } from '../../models/taskflow.model';
 
 @Component({
@@ -11,7 +11,7 @@ import { UserRole, User } from '../../models/taskflow.model';
   templateUrl: './profile.component.html',
   styleUrls: ['./profile.component.css']
 })
-export class ProfileComponent implements OnInit {
+export class ProfileComponent {
   private destroyRef = inject(DestroyRef);
 
   // Inputs
@@ -31,14 +31,15 @@ export class ProfileComponent implements OnInit {
   statusHeadline = 'Active on Sprint Milestones';
   statusMessage = 'Reviewing open PRs';
 
-  ngOnInit(): void {
-    // Track active session uptime while profile dialog is open, safely bound to lifecycle
-    interval(1000)
-      .pipe(takeUntilDestroyed(this.destroyRef))
+  constructor() {
+    // Only tick when modal is actively open, preventing unthrottled background change detection cycles
+    toObservable(this.isOpen)
+      .pipe(
+        switchMap(open => (open ? interval(1000) : EMPTY)),
+        takeUntilDestroyed(this.destroyRef)
+      )
       .subscribe(() => {
-        if (this.isOpen()) {
-          this.sessionSeconds++;
-        }
+        this.sessionSeconds++;
       });
   }
 
