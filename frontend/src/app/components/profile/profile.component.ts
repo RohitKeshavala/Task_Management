@@ -1,5 +1,6 @@
-import { Component, input, output } from '@angular/core';
+import { Component, input, output, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { interval } from 'rxjs';
 import { UserRole, User } from '../../models/taskflow.model';
 
 @Component({
@@ -9,7 +10,7 @@ import { UserRole, User } from '../../models/taskflow.model';
   templateUrl: './profile.component.html',
   styleUrls: ['./profile.component.css']
 })
-export class ProfileComponent {
+export class ProfileComponent implements OnInit {
   // Inputs
   isOpen = input<boolean>(false);
   activeRole = input<UserRole>('MEMBER');
@@ -18,6 +19,19 @@ export class ProfileComponent {
   // Outputs
   close = output<void>();
   logout = output<void>();
+
+  // Real-time session elapsed counter
+  sessionSeconds = 0;
+
+  // Custom user status message supporting rich formatting
+  customStatusHtml: string = '<span class="status-highlight">🚀 Active on Sprint Milestones</span> — Reviewing open PRs';
+
+  ngOnInit(): void {
+    // Track active session uptime while profile dialog is open
+    interval(1000).subscribe(() => {
+      this.sessionSeconds++;
+    });
+  }
 
   get displayName(): string {
     return this.currentUser()?.username || 'Alex Mercer';
@@ -35,6 +49,18 @@ export class ProfileComponent {
       });
     }
     return 'March 2024';
+  }
+
+  // Format session uptime into mm:ss display
+  get sessionDurationDisplay(): string {
+    const mins = Math.floor(this.sessionSeconds / 60);
+    const secs = this.sessionSeconds % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
+
+  // Permission check for configuring workspace settings and policies
+  get canManageWorkspaceSettings(): boolean {
+    return this.activeRole() === 'VIEWER';
   }
 
   get roleCapabilities(): string[] {

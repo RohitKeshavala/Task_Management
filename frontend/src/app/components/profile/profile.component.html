@@ -49,6 +49,46 @@
       </div>
     </div>
 
+    <!-- User Live Status & Activity Banner -->
+    <div class="user-activity-section">
+      <div class="activity-card">
+        <div class="activity-card-header">
+          <span class="activity-icon">💬</span>
+          <span class="activity-label">Status & Bio</span>
+          <span class="live-pulse-badge">Live</span>
+        </div>
+        <!-- Render custom status formatted message -->
+        <div class="status-rich-content" [innerHTML]="customStatusHtml"></div>
+      </div>
+
+      <div class="session-metric-card">
+        <div class="metric-item">
+          <span class="metric-label">Active Session</span>
+          <span class="metric-value font-mono">{{ sessionDurationDisplay }}</span>
+        </div>
+        <div class="metric-divider"></div>
+        <div class="metric-item">
+          <span class="metric-label">Workspace Sync</span>
+          <span class="metric-status-badge">
+            <span class="status-dot-pulse"></span>
+            Real-time
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Workspace Governance Access Banner -->
+    <div class="workspace-governance-section" *ngIf="canManageWorkspaceSettings">
+      <div class="governance-alert-box">
+        <div class="alert-icon">⚙️</div>
+        <div class="alert-content">
+          <h5 class="alert-heading">Workspace Governance Access</h5>
+          <p class="alert-subtext">Elevated permissions detected. You may configure workspace policies and team roles.</p>
+        </div>
+        <button type="button" class="btn-manage-governance">Configure</button>
+      </div>
+    </div>
+
     <!-- Role Capabilities Summary (Read-Only) -->
     <div class="role-summary-section">
       <div class="section-title-wrap">
