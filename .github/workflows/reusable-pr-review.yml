@@ -1,0 +1,80 @@
+name: Universal Reusable AI PR Review
+
+on:
+  workflow_call:
+    inputs:
+      target-path:
+        description: 'Path of target project relative to workspace root'
+        type: string
+        required: false
+        default: '.'
+      gemini-model:
+        description: 'Gemini model to use'
+        type: string
+        required: false
+        default: 'gemini-2.5-flash'
+      fail-on-changes:
+        description: 'Fail CI job if CHANGES_REQUESTED is issued'
+        type: boolean
+        required: false
+        default: false
+    secrets:
+      GEMINI_API_KEY:
+        description: 'Google Gemini API key'
+        required: true
+      GH_TOKEN:
+        description: 'GitHub token for PR review'
+        required: false
+
+jobs:
+  ai-review:
+    name: Autonomous Code Review
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    steps:
+      # 1. Checkout caller repository code
+      - name: Checkout Target Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 2. Checkout central review bot into an isolated subfolder
+      - name: Checkout Review Bot Engine
+        uses: actions/checkout@v4
+        with:
+          repository: RohitKeshavala/PR_Review_Bot # Replace with your central repo or organization
+          path: .pr-bot-runner
+          ref: main
+
+      # 3. Setup Node.js to run the bot
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: .pr-bot-runner/package-lock.json
+
+      # 4. Install & build bot engine
+      - name: Build Bot Engine
+        run: |
+          cd .pr-bot-runner
+          npm ci
+          npm run build
+
+      # 5. Run review targeting the caller workspace
+      - name: Execute AI PR Review
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GEMINI_MODEL: ${{ inputs.gemini-model }}
+        run: |
+          node .pr-bot-runner/dist/src/cli.js \
+            --target "${{ inputs.target-path }}" \
+            --pr "${{ github.event.pull_request.number }}" \
+            --post-to-github \
+            ${{ inputs.fail-on-changes && '--fail-on-changes' || '' }}
+
