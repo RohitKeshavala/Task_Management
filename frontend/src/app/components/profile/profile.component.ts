@@ -1,4 +1,5 @@
-import { Component, input, output, OnInit } from '@angular/core';
+import { Component, input, output, OnInit, DestroyRef, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { interval } from 'rxjs';
 import { UserRole, User } from '../../models/taskflow.model';
@@ -11,6 +12,8 @@ import { UserRole, User } from '../../models/taskflow.model';
   styleUrls: ['./profile.component.css']
 })
 export class ProfileComponent implements OnInit {
+  private destroyRef = inject(DestroyRef);
+
   // Inputs
   isOpen = input<boolean>(false);
   activeRole = input<UserRole>('MEMBER');
@@ -28,10 +31,12 @@ export class ProfileComponent implements OnInit {
   statusMessage = 'Reviewing open PRs';
 
   ngOnInit(): void {
-    // Track active session uptime while profile dialog is open
-    interval(1000).subscribe(() => {
-      this.sessionSeconds++;
-    });
+    // Track active session uptime while profile dialog is open, safely bound to lifecycle
+    interval(1000)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        this.sessionSeconds++;
+      });
   }
 
   get displayName(): string {
