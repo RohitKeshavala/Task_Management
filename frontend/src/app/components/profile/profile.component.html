@@ -30,6 +30,7 @@
     <div class="user-overview-section">
       <div class="user-avatar-halo" aria-hidden="true">
         <span class="avatar-emoji">{{ activeRole() === 'ADMIN' ? '👑' : (activeRole() === 'VIEWER' ? '👁️' : '👤') }}</span>
+        <span class="avatar-initials">{{ userInitials }}</span>
         <span class="status-indicator-dot role-dot-{{ activeRole().toLowerCase() }}"></span>
       </div>
 
