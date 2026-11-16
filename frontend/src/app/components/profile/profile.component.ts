@@ -22,6 +22,7 @@ export class ProfileComponent implements OnInit {
   // Outputs
   close = output<void>();
   logout = output<void>();
+  configureGovernance = output<void>();
 
   // Real-time session elapsed counter
   sessionSeconds = 0;
@@ -35,7 +36,9 @@ export class ProfileComponent implements OnInit {
     interval(1000)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
-        this.sessionSeconds++;
+        if (this.isOpen()) {
+          this.sessionSeconds++;
+        }
       });
   }
 
@@ -45,11 +48,13 @@ export class ProfileComponent implements OnInit {
   
 
   get userInitials(): string {
-    const parts = this.displayName.trim().split(/\s+/);
+    const parts = this.displayName.trim().split(/\s+/).filter(Boolean);
     if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
+      const first = Array.from(parts[0])[0] || '';
+      const second = Array.from(parts[1])[0] || '';
+      return (first + second).toUpperCase();
     }
-    return parts[0] ? parts[0].slice(0, 2).toUpperCase() : 'U';
+    return parts[0] ? Array.from(parts[0]).slice(0, 2).join('').toUpperCase() : 'U';
   }
 
   get displayEmail(): string {
