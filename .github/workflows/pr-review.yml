@@ -18,7 +18,7 @@ jobs:
     # Call the reusable workflow from your central bot repo:
     # -----------------------------------------------------------------------------------------
     # (Remote Central Repo): Replace with your actual org/repo and path:
-    uses: RohitKeshavala/PR_Review_Bot/.github/workflows/reusable-pr-review.yml@main
+    uses: RohitKeshavala/PR_Review_Bot/.github/workflows/reusable-pr-review.yml@updated-bot
     # -----------------------------------------------------------------------------------------
     with:
       target-path: 'frontend'              # Only analyze frontend code

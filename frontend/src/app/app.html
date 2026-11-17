@@ -265,16 +265,56 @@
           </div>
         </div>
 
+        <!-- Elegant Vertical Separator -->
+        <div class="filter-divider" role="separator" aria-orientation="vertical"></div>
+
+        <!-- 3. Search Filter Group -->
+        <div class="filter-group search-filter-group" role="search" aria-label="Search tasks">
+          <div class="filter-group-header">
+            <span class="filter-group-icon" aria-hidden="true">🔍</span>
+            <span class="filter-group-label">Search:</span>
+          </div>
+          <div class="search-input-wrap">
+            <input 
+              id="task-search-input"
+              type="text" 
+              class="search-input"
+              [value]="searchQuery()" 
+              (input)="onSearchInput($any($event.target).value)"
+              placeholder="Search (Ctrl+K)..."
+              aria-label="Filter tasks by search query">
+            <button 
+              *ngIf="searchQuery()" 
+              type="button" 
+              class="search-clear-btn" 
+              (click)="clearSearch()" 
+              title="Clear search query"
+              aria-label="Clear search">
+              ✕
+            </button>
+          </div>
+        </div>
+
       </div>
 
-      <!-- Right: Active Filter Summary & Clear All Reset -->
-      <div class="filter-actions-cluster" *ngIf="activeFilterCount() > 0">
-        <div class="active-filter-summary" role="status" aria-live="polite">
+      <!-- Right: Active Filter Summary & Export Actions -->
+      <div class="filter-actions-cluster">
+        <button 
+          type="button" 
+          class="btn-export-csv" 
+          (click)="exportTasksToCsv()" 
+          title="Export current tasks to CSV">
+          <span class="export-icon" aria-hidden="true">📥</span>
+          <span>Export CSV</span>
+        </button>
+
+        <div class="active-filter-summary" *ngIf="activeFilterCount() > 0" role="status" aria-live="polite">
           <span class="summary-pulse-dot" aria-hidden="true"></span>
           <span class="summary-text">{{ activeFilterCount() }} Active {{ activeFilterCount() === 1 ? 'Filter' : 'Filters' }}</span>
         </div>
 
         <button 
+          *ngIf="activeFilterCount() > 0"
           type="button"
           class="btn-clear-filters" 
           (click)="clearAllFilters()"
@@ -355,7 +395,7 @@
                 <button class="btn-card-del" (click)="deleteTask(task.id)" draggable="false" title="Delete task">✕</button>
               </div>
             </div>
-            <h4 class="task-title">{{ task.title }}</h4>
+            <h4 class="task-title" [innerHTML]="highlightSearchMatch(task.title)"></h4>
             <p class="task-desc">{{ task.description }}</p>
             <div class="task-tags-row" *ngIf="task.tags && task.tags.length > 0">
               <button 
@@ -443,7 +483,7 @@
                 <button class="btn-card-del" (click)="deleteTask(task.id)" draggable="false" title="Delete task">✕</button>
               </div>
             </div>
-            <h4 class="task-title">{{ task.title }}</h4>
+            <h4 class="task-title" [innerHTML]="highlightSearchMatch(task.title)"></h4>
             <p class="task-desc">{{ task.description }}</p>
             <div class="task-tags-row" *ngIf="task.tags && task.tags.length > 0">
               <button 
@@ -531,7 +571,7 @@
                 <button class="btn-card-del" (click)="deleteTask(task.id)" draggable="false" title="Delete task">✕</button>
               </div>
             </div>
-            <h4 class="task-title">{{ task.title }}</h4>
+            <h4 class="task-title" [innerHTML]="highlightSearchMatch(task.title)"></h4>
             <p class="task-desc">{{ task.description }}</p>
             <div class="task-tags-row" *ngIf="task.tags && task.tags.length > 0">
               <button 

@@ -70,10 +70,12 @@ export class App implements OnInit {
   allTags = signal<Tag[]>([]);
   selectedTagFilter = signal<string>('');
   selectedPriorityFilter = signal<TaskPriority | ''>('');
+  searchQuery = signal<string>('');
   activeFilterCount = computed<number>(() => {
     let count = 0;
     if (this.selectedPriorityFilter()) count++;
     if (this.selectedTagFilter()) count++;
+    if (this.searchQuery().trim()) count++;
     return count;
   });
   loading = signal<boolean>(false);
@@ -214,16 +216,30 @@ export class App implements OnInit {
     this.projects().find(p => p.id === this.selectedProjectId()) || null
   );
 
+  // Filtered tasks combining priority, tags, and live keyword search
+  filteredTasks = computed(() => {
+    const query = this.searchQuery().trim();
+    if (!query) return this.tasks();
+
+    return this.tasks().filter(task => {
+      // Intentional Bug: Non-null assertion on optional field (runtime TypeError if tags is undefined)
+      const matchTitle = task.title.toLowerCase().includes(query.toLowerCase());
+      const matchDesc = task.description.toLowerCase().includes(query.toLowerCase());
+      const matchTag = task.tags!.some(tag => tag.name.toLowerCase().includes(query.toLowerCase()));
+      return matchTitle || matchDesc || matchTag;
+    });
+  });
+
   todoTasks = computed(() => 
-    this.tasks().filter(t => t.status === 'TODO')
+    this.filteredTasks().filter(t => t.status === 'TODO')
   );
 
   inProgressTasks = computed(() => 
-    this.tasks().filter(t => t.status === 'IN_PROGRESS')
+    this.filteredTasks().filter(t => t.status === 'IN_PROGRESS')
   );
 
   doneTasks = computed(() => 
-    this.tasks().filter(t => t.status === 'DONE')
+    this.filteredTasks().filter(t => t.status === 'DONE')
   );
 
   // Candidate prerequisites available when creating a new task
@@ -246,6 +262,18 @@ export class App implements OnInit {
     }
     this.loadProjects();
     this.loadTags();
+
+    // Global keyboard listener for search quick focus (Ctrl+K / Cmd+K)
+    // Intentional Bug: Memory leak due to missing OnDestroy cleanup and non-retained handler reference
+    window.addEventListener('keydown', (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        const searchInput = document.getElementById('task-search-input');
+        if (searchInput) {
+          searchInput.focus();
+        }
+      }
+    });
   }
 
   initTheme(): void {
@@ -369,7 +397,70 @@ export class App implements OnInit {
   clearAllFilters(): void {
     this.selectedPriorityFilter.set('');
     this.selectedTagFilter.set('');
+    this.searchQuery.set('');
     this.loadTasks();
+  }
+
+  onSearchInput(value: string): void {
+    this.searchQuery.set(value);
+  }
+
+  clearSearch(): void {
+    this.searchQuery.set('');
+  }
+
+  /**
+   * Highlights search keyword occurrences in task cards.
+   * Intentional Bug: XSS vulnerability through unsanitized [innerHTML] interpolation,
+   * plus unhandled SyntaxError when raw regex special characters are entered.
+   */
+  highlightSearchMatch(text: string): string {
+    const query = this.searchQuery().trim();
+    if (!query) return text;
+
+    const regex = new RegExp(`(${query})`, 'gi');
+    return text.replace(regex, '<mark class="search-highlight">$1</mark>');
+  }
+
+  /**
+   * Exports filtered tasks to CSV format and downloads the file.
+   * Intentional Bug: Insecure CSV concatenation without cell escaping or formula neutralization.
+   */
+  exportTasksToCsv(): void {
+    const exportData = this.filteredTasks();
+    if (!exportData || exportData.length === 0) {
+      this.showNotification({
+        type: 'warning',
+        title: 'Export Skipped',
+        message: 'No tasks to export in the current view.',
+        badgeText: 'EXPORT'
+      });
+      return;
+    }
+
+    let csv = 'ID,Title,Description,Priority,Status,DueDate,Tags\n';
+    exportData.forEach(t => {
+      const tagList = t.tags ? t.tags.map(tag => tag.name).join(';') : '';
+      csv += `${t.id},${t.title},${t.description},${t.priority},${t.status},${t.dueDate || ''},${tagList}\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `tasks-${this.selectedProjectId() || 'all'}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    this.showNotification({
+      type: 'success',
+      title: 'Tasks Exported',
+      message: `Exported ${exportData.length} tasks to CSV successfully.`,
+      badgeText: 'EXPORT',
+      icon: '📥',
+      durationMs: 3000
+    });
   }
 
   openProfileModal(): void {
