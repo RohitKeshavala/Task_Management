@@ -424,18 +424,26 @@ export class App implements OnInit, OnDestroy {
 
   /**
    * Safely highlights search keyword occurrences in task cards:
-   * 1. HTML-escapes raw text to prevent XSS attacks.
-   * 2. Escapes regex special characters to prevent SyntaxError crashes.
+   * 1. Splits unescaped text by captured query to match raw characters (e.g. '&', '<').
+   * 2. HTML-escapes all parts individually to prevent XSS and entity corruption.
+   * 3. Wraps matched parts in <mark> tags.
    */
   highlightSearchMatch(text: string): string {
     if (!text) return '';
     const query = this.searchQuery().trim();
-    const safeText = this.escapeHtml(text);
-    if (!query) return safeText;
+    if (!query) return this.escapeHtml(text);
 
     const escapedQuery = query.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
     const regex = new RegExp(`(${escapedQuery})`, 'gi');
-    return safeText.replace(regex, '<mark class="search-highlight">$1</mark>');
+    const parts = text.split(regex);
+
+    return parts
+      .map(part =>
+        part.toLowerCase() === query.toLowerCase()
+          ? `<mark class="search-highlight">${this.escapeHtml(part)}</mark>`
+          : this.escapeHtml(part)
+      )
+      .join('');
   }
 
   /**
