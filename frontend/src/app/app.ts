@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TaskFlowService } from './services/taskflow.service';
@@ -50,7 +50,7 @@ export function formatDateToISO(d: Date): string {
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
-export class App implements OnInit {
+export class App implements OnInit, OnDestroy {
   private service = inject(TaskFlowService);
 
   // Active Role & Permission State
@@ -70,10 +70,12 @@ export class App implements OnInit {
   allTags = signal<Tag[]>([]);
   selectedTagFilter = signal<string>('');
   selectedPriorityFilter = signal<TaskPriority | ''>('');
+  searchQuery = signal<string>('');
   activeFilterCount = computed<number>(() => {
     let count = 0;
     if (this.selectedPriorityFilter()) count++;
     if (this.selectedTagFilter()) count++;
+    if (this.searchQuery().trim()) count++;
     return count;
   });
   loading = signal<boolean>(false);
@@ -214,16 +216,29 @@ export class App implements OnInit {
     this.projects().find(p => p.id === this.selectedProjectId()) || null
   );
 
+  // Filtered tasks combining priority, tags, and live keyword search
+  filteredTasks = computed(() => {
+    const query = this.searchQuery().trim().toLowerCase();
+    if (!query) return this.tasks();
+
+    return this.tasks().filter(task => {
+      const matchTitle = (task.title || '').toLowerCase().includes(query);
+      const matchDesc = (task.description || '').toLowerCase().includes(query);
+      const matchTag = task.tags?.some(tag => tag.name.toLowerCase().includes(query)) ?? false;
+      return matchTitle || matchDesc || matchTag;
+    });
+  });
+
   todoTasks = computed(() => 
-    this.tasks().filter(t => t.status === 'TODO')
+    this.filteredTasks().filter(t => t.status === 'TODO')
   );
 
   inProgressTasks = computed(() => 
-    this.tasks().filter(t => t.status === 'IN_PROGRESS')
+    this.filteredTasks().filter(t => t.status === 'IN_PROGRESS')
   );
 
   doneTasks = computed(() => 
-    this.tasks().filter(t => t.status === 'DONE')
+    this.filteredTasks().filter(t => t.status === 'DONE')
   );
 
   // Candidate prerequisites available when creating a new task
@@ -239,6 +254,16 @@ export class App implements OnInit {
     return this.tasks().filter(t => t.id !== active.id && !currentDepIds.has(t.id));
   });
 
+  private keydownListener = (e: KeyboardEvent): void => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      const searchInput = document.getElementById('task-search-input');
+      if (searchInput) {
+        searchInput.focus();
+      }
+    }
+  };
+
   ngOnInit(): void {
     this.initTheme();
     if (!this.service.isAuthenticated()) {
@@ -246,6 +271,13 @@ export class App implements OnInit {
     }
     this.loadProjects();
     this.loadTags();
+
+    // Global keyboard listener for search quick focus (Ctrl+K / Cmd+K)
+    window.addEventListener('keydown', this.keydownListener);
+  }
+
+  ngOnDestroy(): void {
+    window.removeEventListener('keydown', this.keydownListener);
   }
 
   initTheme(): void {
@@ -369,7 +401,116 @@ export class App implements OnInit {
   clearAllFilters(): void {
     this.selectedPriorityFilter.set('');
     this.selectedTagFilter.set('');
+    this.searchQuery.set('');
     this.loadTasks();
+  }
+
+  onSearchInput(value: string): void {
+    this.searchQuery.set(value);
+  }
+
+  clearSearch(): void {
+    this.searchQuery.set('');
+  }
+
+  escapeHtml(str: string): string {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  /**
+   * Safely highlights search keyword occurrences in task cards:
+   * 1. Splits unescaped text by captured query to match raw characters (e.g. '&', '<').
+   * 2. HTML-escapes all parts individually to prevent XSS and entity corruption.
+   * 3. Wraps matched parts in <mark> tags.
+   */
+  highlightSearchMatch(text: string): string {
+    if (!text) return '';
+    const query = this.searchQuery().trim();
+    if (!query) return this.escapeHtml(text);
+
+    const escapedQuery = query.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const regex = new RegExp(`(${escapedQuery})`, 'gi');
+    const parts = text.split(regex);
+
+    return parts
+      .map(part =>
+        part.toLowerCase() === query.toLowerCase()
+          ? `<mark class="search-highlight">${this.escapeHtml(part)}</mark>`
+          : this.escapeHtml(part)
+      )
+      .join('');
+  }
+
+  /**
+   * Safely escapes and neutralizes CSV values:
+   * 1. Neutralizes formula injection (=, +, -, @, \t, \r) by prepending a single quote.
+   * 2. Quotes fields containing commas, quotes, or newlines, and doubles embedded quotes.
+   */
+  escapeCsvField(field: unknown): string {
+    if (field === null || field === undefined) return '';
+    let str = String(field);
+    if (/^[=+\-@\t\r]/.test(str)) {
+      str = `'` + str;
+    }
+    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  }
+
+  /**
+   * Exports filtered tasks to CSV format with cell escaping and formula neutralization.
+   */
+  exportTasksToCsv(): void {
+    const exportData = this.filteredTasks();
+    if (!exportData || exportData.length === 0) {
+      this.showNotification({
+        type: 'warning',
+        title: 'Export Skipped',
+        message: 'No tasks to export in the current view.',
+        badgeText: 'EXPORT'
+      });
+      return;
+    }
+
+    let csv = 'ID,Title,Description,Priority,Status,DueDate,Tags\n';
+    exportData.forEach(t => {
+      const tagList = t.tags ? t.tags.map(tag => tag.name).join(';') : '';
+      const row = [
+        this.escapeCsvField(t.id),
+        this.escapeCsvField(t.title),
+        this.escapeCsvField(t.description),
+        this.escapeCsvField(t.priority),
+        this.escapeCsvField(t.status),
+        this.escapeCsvField(t.dueDate || ''),
+        this.escapeCsvField(tagList)
+      ].join(',') + '\n';
+      csv += row;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const downloadUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `tasks-${this.selectedProjectId() || 'all'}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+
+    this.showNotification({
+      type: 'success',
+      title: 'Tasks Exported',
+      message: `Exported ${exportData.length} tasks to CSV successfully.`,
+      badgeText: 'EXPORT',
+      icon: '📥',
+      durationMs: 3000
+    });
   }
 
   openProfileModal(): void {
