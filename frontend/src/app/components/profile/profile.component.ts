@@ -78,7 +78,7 @@ export class ProfileComponent {
     }
     return 'March 2024';
   }
-  
+
 
   // Format session uptime into mm:ss display
   get sessionDurationDisplay(): string {
@@ -132,3 +132,4 @@ export class ProfileComponent {
     }
   }
 }
+
