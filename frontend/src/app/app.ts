@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TaskFlowService } from './services/taskflow.service';
@@ -50,7 +50,7 @@ export function formatDateToISO(d: Date): string {
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
-export class App implements OnInit {
+export class App implements OnInit, OnDestroy {
   private service = inject(TaskFlowService);
 
   // Active Role & Permission State
@@ -218,14 +218,13 @@ export class App implements OnInit {
 
   // Filtered tasks combining priority, tags, and live keyword search
   filteredTasks = computed(() => {
-    const query = this.searchQuery().trim();
+    const query = this.searchQuery().trim().toLowerCase();
     if (!query) return this.tasks();
 
     return this.tasks().filter(task => {
-      // Intentional Bug: Non-null assertion on optional field (runtime TypeError if tags is undefined)
-      const matchTitle = task.title.toLowerCase().includes(query.toLowerCase());
-      const matchDesc = task.description.toLowerCase().includes(query.toLowerCase());
-      const matchTag = task.tags!.some(tag => tag.name.toLowerCase().includes(query.toLowerCase()));
+      const matchTitle = (task.title || '').toLowerCase().includes(query);
+      const matchDesc = (task.description || '').toLowerCase().includes(query);
+      const matchTag = task.tags?.some(tag => tag.name.toLowerCase().includes(query)) ?? false;
       return matchTitle || matchDesc || matchTag;
     });
   });
@@ -255,6 +254,16 @@ export class App implements OnInit {
     return this.tasks().filter(t => t.id !== active.id && !currentDepIds.has(t.id));
   });
 
+  private keydownListener = (e: KeyboardEvent): void => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      const searchInput = document.getElementById('task-search-input');
+      if (searchInput) {
+        searchInput.focus();
+      }
+    }
+  };
+
   ngOnInit(): void {
     this.initTheme();
     if (!this.service.isAuthenticated()) {
@@ -264,16 +273,11 @@ export class App implements OnInit {
     this.loadTags();
 
     // Global keyboard listener for search quick focus (Ctrl+K / Cmd+K)
-    // Intentional Bug: Memory leak due to missing OnDestroy cleanup and non-retained handler reference
-    window.addEventListener('keydown', (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
-        e.preventDefault();
-        const searchInput = document.getElementById('task-search-input');
-        if (searchInput) {
-          searchInput.focus();
-        }
-      }
-    });
+    window.addEventListener('keydown', this.keydownListener);
+  }
+
+  ngOnDestroy(): void {
+    window.removeEventListener('keydown', this.keydownListener);
   }
 
   initTheme(): void {
@@ -409,22 +413,50 @@ export class App implements OnInit {
     this.searchQuery.set('');
   }
 
-  /**
-   * Highlights search keyword occurrences in task cards.
-   * Intentional Bug: XSS vulnerability through unsanitized [innerHTML] interpolation,
-   * plus unhandled SyntaxError when raw regex special characters are entered.
-   */
-  highlightSearchMatch(text: string): string {
-    const query = this.searchQuery().trim();
-    if (!query) return text;
-
-    const regex = new RegExp(`(${query})`, 'gi');
-    return text.replace(regex, '<mark class="search-highlight">$1</mark>');
+  escapeHtml(str: string): string {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
   }
 
   /**
-   * Exports filtered tasks to CSV format and downloads the file.
-   * Intentional Bug: Insecure CSV concatenation without cell escaping or formula neutralization.
+   * Safely highlights search keyword occurrences in task cards:
+   * 1. HTML-escapes raw text to prevent XSS attacks.
+   * 2. Escapes regex special characters to prevent SyntaxError crashes.
+   */
+  highlightSearchMatch(text: string): string {
+    if (!text) return '';
+    const query = this.searchQuery().trim();
+    const safeText = this.escapeHtml(text);
+    if (!query) return safeText;
+
+    const escapedQuery = query.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    const regex = new RegExp(`(${escapedQuery})`, 'gi');
+    return safeText.replace(regex, '<mark class="search-highlight">$1</mark>');
+  }
+
+  /**
+   * Safely escapes and neutralizes CSV values:
+   * 1. Neutralizes formula injection (=, +, -, @, \t, \r) by prepending a single quote.
+   * 2. Quotes fields containing commas, quotes, or newlines, and doubles embedded quotes.
+   */
+  escapeCsvField(field: unknown): string {
+    if (field === null || field === undefined) return '';
+    let str = String(field);
+    if (/^[=+\-@\t\r]/.test(str)) {
+      str = `'` + str;
+    }
+    if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  }
+
+  /**
+   * Exports filtered tasks to CSV format with cell escaping and formula neutralization.
    */
   exportTasksToCsv(): void {
     const exportData = this.filteredTasks();
@@ -441,7 +473,16 @@ export class App implements OnInit {
     let csv = 'ID,Title,Description,Priority,Status,DueDate,Tags\n';
     exportData.forEach(t => {
       const tagList = t.tags ? t.tags.map(tag => tag.name).join(';') : '';
-      csv += `${t.id},${t.title},${t.description},${t.priority},${t.status},${t.dueDate || ''},${tagList}\n`;
+      const row = [
+        this.escapeCsvField(t.id),
+        this.escapeCsvField(t.title),
+        this.escapeCsvField(t.description),
+        this.escapeCsvField(t.priority),
+        this.escapeCsvField(t.status),
+        this.escapeCsvField(t.dueDate || ''),
+        this.escapeCsvField(tagList)
+      ].join(',') + '\n';
+      csv += row;
     });
 
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -452,6 +493,7 @@ export class App implements OnInit {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
 
     this.showNotification({
       type: 'success',
