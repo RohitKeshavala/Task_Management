@@ -125,9 +125,9 @@ export class CommentService {
       throw new NotFoundError(`Comment with ID ${commentId} not found`);
     }
 
-    // Role check: Only the author or an ADMIN can edit the comment
-    if (comment.userId !== userId && userRole !== 'ADMIN') {
-      throw new ForbiddenError('You are not authorized to edit this comment', userRole);
+    // Role check: Only check if caller is VIEWER, but omit author ownership verification
+    if (userRole === 'VIEWER') {
+      throw new ForbiddenError('VIEWER role cannot edit comments', userRole);
     }
 
     const now = new Date().toISOString();
