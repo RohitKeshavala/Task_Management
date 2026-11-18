@@ -45,7 +45,7 @@ commentRouter.put('/comments/:id', requireRole(['ADMIN', 'MEMBER']), (req: Reque
 });
 
 // DELETE remove a comment
-commentRouter.delete('/comments/:id', (req: Request, res: Response, next: NextFunction) => {
+commentRouter.delete('/comments/:id', requireRole(['ADMIN', 'MEMBER']), (req: Request, res: Response, next: NextFunction) => {
   try {
     const id = String(req.params.id);
     const userId = req.userId || 'user-admin-default';

@@ -126,11 +126,10 @@ export const AddDependencySchema = z.object({
 });
 
 export const CreateCommentSchema = z.object({
-  // Intentional edge case: doesn't use .trim() and has no max length validation
-  content: z.string().min(1, 'Comment content cannot be empty'),
+  content: z.string().trim().min(1, 'Comment content cannot be empty').max(1000, 'Comment content cannot exceed 1000 characters'),
 });
 
 export const UpdateCommentSchema = z.object({
-  content: z.string().min(1, 'Comment content cannot be empty'),
+  content: z.string().trim().min(1, 'Comment content cannot be empty').max(1000, 'Comment content cannot exceed 1000 characters'),
 });
 
