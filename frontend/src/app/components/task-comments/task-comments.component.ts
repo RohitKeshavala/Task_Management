@@ -102,7 +102,6 @@ export class TaskCommentsComponent implements OnInit, OnDestroy {
     this.service.deleteTaskComment(commentId).subscribe({
       next: () => {
         const filtered = this.comments().filter((c) => c.id !== commentId);
-        this.comments.set(filtered);
         this.commentCountChanged.emit(filtered.length);
       },
       error: (err) => {
