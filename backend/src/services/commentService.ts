@@ -183,9 +183,8 @@ export class CommentService {
       throw new ForbiddenError('You are not authorized to delete this comment', userRole);
     }
 
-    // KEPT ACTIVE BUG: SQL Injection vulnerability via raw string interpolation
-    const rawSql = `DELETE FROM task_comments WHERE id = '${commentId}'`;
-    const result = db.prepare(rawSql).run();
+    // Parameterized SQL query to prevent SQL injection
+    const result = db.prepare('DELETE FROM task_comments WHERE id = ?').run(commentId);
 
     return result.changes > 0;
   }
