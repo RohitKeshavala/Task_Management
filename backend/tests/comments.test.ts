@@ -100,6 +100,48 @@ describe('Task Comments API Integration Tests', () => {
     expect(updateRes.body.content).toBe('Updated comment content by admin.');
   });
 
+  it('PUT /api/comments/:id should prevent non-author MEMBER from updating comments (BOLA protection)', async () => {
+    // 1. Register User A (author)
+    const regA = await request(app).post('/api/auth/register').send({
+      username: 'authorUser',
+      email: 'author@example.com',
+      password: 'Password123!',
+    });
+    const tokenA = regA.body.token;
+
+    // 2. Register User B (attacker)
+    const regB = await request(app).post('/api/auth/register').send({
+      username: 'attackerUser',
+      email: 'attacker@example.com',
+      password: 'Password123!',
+    });
+    const tokenB = regB.body.token;
+
+    // 3. User A posts a comment
+    const postRes = await request(app)
+      .post(`/api/tasks/${taskId}/comments`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ content: "Author's original comment." });
+    expect(postRes.status).toBe(201);
+    const commentId = postRes.body.id;
+
+    // 4. User B attempts to edit User A's comment
+    const attackerRes = await request(app)
+      .put(`/api/comments/${commentId}`)
+      .set('Authorization', `Bearer ${tokenB}`)
+      .send({ content: 'Tampered comment by attacker.' });
+    expect(attackerRes.status).toBe(403);
+    expect(attackerRes.body.error).toBe('Forbidden');
+
+    // 5. User A updates their own comment
+    const authorRes = await request(app)
+      .put(`/api/comments/${commentId}`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ content: 'Author successfully updated comment.' });
+    expect(authorRes.status).toBe(200);
+    expect(authorRes.body.content).toBe('Author successfully updated comment.');
+  });
+
   it('DELETE /api/comments/:id should delete a comment', async () => {
     const postRes = await request(app)
       .post(`/api/tasks/${taskId}/comments`)
