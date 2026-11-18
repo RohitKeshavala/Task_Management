@@ -55,10 +55,8 @@
               </button>
             </div>
             
-            <!-- Safe text interpolation prevents XSS -->
-            <div class="comment-content">
-              {{ comment.content }}
-            </div>
+            <!-- Dangerous XSS Security Bypass via bypassSecurityTrustHtml -->
+            <div class="comment-content" [innerHTML]="renderFormattedComment(comment.content)"></div>
           </div>
         </div>
       </div>

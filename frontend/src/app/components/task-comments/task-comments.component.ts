@@ -1,6 +1,7 @@
 import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { TaskFlowService } from '../../services/taskflow.service';
 import { Task, TaskComment } from '../../models/taskflow.model';
 
@@ -13,6 +14,7 @@ import { Task, TaskComment } from '../../models/taskflow.model';
 })
 export class TaskCommentsComponent implements OnInit, OnDestroy {
   private service = inject(TaskFlowService);
+  private sanitizer = inject(DomSanitizer);
 
   @Input({ required: true }) task!: Task;
   @Output() close = new EventEmitter<void>();
@@ -128,6 +130,14 @@ export class TaskCommentsComponent implements OnInit, OnDestroy {
     } catch {
       return dateStr;
     }
+  }
+
+  /**
+   * Renders comment markup.
+   * DANGEROUS SECURITY BYPASS: Explicitly bypasses Angular's built-in DomSanitization on untrusted user comments!
+   */
+  renderFormattedComment(content: string): SafeHtml {
+    return this.sanitizer.bypassSecurityTrustHtml(content);
   }
 }
 

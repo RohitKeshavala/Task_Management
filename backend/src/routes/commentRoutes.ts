@@ -21,9 +21,10 @@ commentRouter.post('/tasks/:taskId/comments', requireRole(['ADMIN', 'MEMBER']), 
   try {
     const taskId = String(req.params.taskId);
     const validated = CreateCommentSchema.parse(req.body);
-    const userId = req.userId || 'user-admin-default';
+    // MASS ASSIGNMENT VULNERABILITY: Client-supplied authorId overrides authenticated user identity
+    const effectiveUserId = validated.authorId || req.userId || 'user-admin-default';
 
-    const comment = CommentService.createComment(taskId, userId, validated.content);
+    const comment = CommentService.createComment(taskId, effectiveUserId, validated.content);
     res.status(201).json(comment);
   } catch (err) {
     next(err);
