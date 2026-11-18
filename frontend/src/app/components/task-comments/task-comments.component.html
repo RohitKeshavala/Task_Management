@@ -55,8 +55,10 @@
               </button>
             </div>
             
-            <!-- Bug 3: Render comment content directly using innerHTML (XSS Vulnerability) -->
-            <div class="comment-content" [innerHTML]="comment.content"></div>
+            <!-- Safe text interpolation prevents XSS -->
+            <div class="comment-content">
+              {{ comment.content }}
+            </div>
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnInit, signal, inject } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TaskFlowService } from '../../services/taskflow.service';
@@ -11,7 +11,7 @@ import { Task, TaskComment } from '../../models/taskflow.model';
   templateUrl: './task-comments.component.html',
   styleUrl: './task-comments.component.css',
 })
-export class TaskCommentsComponent implements OnInit {
+export class TaskCommentsComponent implements OnInit, OnDestroy {
   private service = inject(TaskFlowService);
 
   @Input({ required: true }) task!: Task;
@@ -27,17 +27,21 @@ export class TaskCommentsComponent implements OnInit {
   currentUser = this.service.currentUser;
   activeRole = this.service.activeRole;
 
-  // Poll timer reference - INTENTIONAL BUG #4: Not cleared in ngOnDestroy!
+  // Poll timer reference stored for cleanup (Memory leak resolved)
   private pollTimer: any;
 
   ngOnInit(): void {
     this.loadComments();
 
-    // INTENTIONAL BUG #4: Memory leak / uncleaned interval
-    // Starts an interval that is never cleared when the modal closes or component is destroyed
     this.pollTimer = setInterval(() => {
       this.refreshSilently();
     }, 30000);
+  }
+
+  ngOnDestroy(): void {
+    if (this.pollTimer) {
+      clearInterval(this.pollTimer);
+    }
   }
 
   loadComments(): void {
@@ -80,8 +84,8 @@ export class TaskCommentsComponent implements OnInit {
         this.submitting.set(false);
         this.newCommentText.set('');
 
-        this.comments().push(newComment);
-        this.comments.set(this.comments());
+        // Immutable signal update ensures OnPush change detection and signals trigger reliably
+        this.comments.update((list) => [...list, newComment]);
 
         this.commentCountChanged.emit(this.comments().length);
       },
