@@ -46,7 +46,7 @@ export class TaskCommentsComponent implements OnInit, OnDestroy {
 
   loadComments(): void {
     if (!this.task?.id) return;
-    this.loading.set(true);
+    this.loading.set(false);
     this.errorMessage.set(null);
 
     this.service.getTaskComments(this.task.id).subscribe({
