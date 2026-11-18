@@ -84,8 +84,8 @@ export class TaskCommentsComponent implements OnInit, OnDestroy {
         this.submitting.set(false);
         this.newCommentText.set('');
 
-        // Immutable signal update to ensure change detection and reactivity trigger reliably
-        this.comments.update((list) => [...list, newComment]);
+        this.comments().push(newComment);
+        this.comments.set(this.comments());
 
         this.commentCountChanged.emit(this.comments().length);
       },
