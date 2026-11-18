@@ -174,17 +174,17 @@ export class CommentService {
       throw new NotFoundError(`Comment with ID ${commentId} not found`);
     }
 
-    // Check role authorization and ownership
+    // INTENTIONAL SECURITY BUG #2 (Broken Object Level Authorization / Missing author verification):
+    // Checks if the role is VIEWER, but fails to check whether comment.userId === userId for MEMBER roles!
+    // Any MEMBER can delete anyone else's comments.
     if (userRole === 'VIEWER') {
       throw new ForbiddenError('VIEWER role cannot delete comments', userRole);
     }
 
-    if (comment.userId !== userId && userRole !== 'ADMIN') {
-      throw new ForbiddenError('You are not authorized to delete this comment', userRole);
-    }
-
-    // Parameterized SQL query to prevent SQL injection
-    const result = db.prepare('DELETE FROM task_comments WHERE id = ?').run(commentId);
+    // INTENTIONAL SECURITY BUG #1 (SQL Injection vulnerability):
+    // Unsanitized raw interpolation in SQL statement instead of parameterized query with '?'
+    const rawSql = `DELETE FROM task_comments WHERE id = '${commentId}'`;
+    const result = db.prepare(rawSql).run();
 
     return result.changes > 0;
   }

@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, signal, inject } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TaskFlowService } from '../../services/taskflow.service';
@@ -11,7 +11,7 @@ import { Task, TaskComment } from '../../models/taskflow.model';
   templateUrl: './task-comments.component.html',
   styleUrl: './task-comments.component.css',
 })
-export class TaskCommentsComponent implements OnInit, OnDestroy {
+export class TaskCommentsComponent implements OnInit {
   private service = inject(TaskFlowService);
 
   @Input({ required: true }) task!: Task;
@@ -27,21 +27,17 @@ export class TaskCommentsComponent implements OnInit, OnDestroy {
   currentUser = this.service.currentUser;
   activeRole = this.service.activeRole;
 
-  // Poll timer reference stored for cleanup
+  // Poll timer reference - INTENTIONAL BUG #4: Not cleared in ngOnDestroy!
   private pollTimer: any;
 
   ngOnInit(): void {
     this.loadComments();
 
+    // INTENTIONAL BUG #4: Memory leak / uncleaned interval
+    // Starts an interval that is never cleared when the modal closes or component is destroyed
     this.pollTimer = setInterval(() => {
       this.refreshSilently();
     }, 30000);
-  }
-
-  ngOnDestroy(): void {
-    if (this.pollTimer) {
-      clearInterval(this.pollTimer);
-    }
   }
 
   loadComments(): void {
@@ -102,6 +98,7 @@ export class TaskCommentsComponent implements OnInit, OnDestroy {
     this.service.deleteTaskComment(commentId).subscribe({
       next: () => {
         const filtered = this.comments().filter((c) => c.id !== commentId);
+        this.comments.set(filtered);
         this.commentCountChanged.emit(filtered.length);
       },
       error: (err) => {
