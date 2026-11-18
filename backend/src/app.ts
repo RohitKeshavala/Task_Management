@@ -6,6 +6,7 @@ import { userRouter } from './routes/userRoutes.js';
 import { projectRouter } from './routes/projectRoutes.js';
 import { taskRouter } from './routes/taskRoutes.js';
 import { tagRouter } from './routes/tagRoutes.js';
+import { commentRouter } from './routes/commentRoutes.js';
 import { errorHandler } from './middleware/errorHandler.js';
 
 export function createApp() {
@@ -28,6 +29,7 @@ export function createApp() {
   app.use('/api/auth', authRouter);
   app.use('/api/users', userRouter);
   app.use('/api/projects', projectRouter);
+  app.use('/api', commentRouter);
   app.use('/api/tasks', taskRouter);
   app.use('/api/tags', tagRouter);
 

@@ -1,0 +1,96 @@
+<div class="comments-modal-backdrop" (click)="onBackdropClick($event)" role="dialog" aria-modal="true">
+  <div class="comments-modal-card">
+    
+    <!-- Header -->
+    <div class="comments-header">
+      <div class="header-titles">
+        <div class="modal-badge">
+          <span class="chat-icon">💬</span>
+          <span>Task Discussion</span>
+        </div>
+        <h3 class="task-title-heading">{{ task.title }}</h3>
+        <!-- Intentional Bug: off-by-one display or direct length display -->
+        <span class="comments-count-pill">{{ comments().length }} comments</span>
+      </div>
+      <button type="button" class="btn-close" (click)="close.emit()" title="Close Comments">✕</button>
+    </div>
+
+    <!-- Error Banner -->
+    <div *ngIf="errorMessage()" class="comments-error-banner">
+      <span>⚠️ {{ errorMessage() }}</span>
+    </div>
+
+    <!-- Comments Stream -->
+    <div class="comments-body">
+      <div *ngIf="loading()" class="comments-loading">
+        <span class="spinner"></span>
+        <span>Loading discussion...</span>
+      </div>
+
+      <div *ngIf="!loading() && comments().length === 0" class="comments-empty">
+        <div class="empty-icon">💭</div>
+        <h4>No comments yet</h4>
+        <p>Start the conversation about this task and collaborate with your team.</p>
+      </div>
+
+      <div *ngIf="!loading() && comments().length > 0" class="comments-list">
+        <div *ngFor="let comment of comments()" class="comment-item">
+          <div class="comment-avatar">
+            <span>{{ (comment.author?.username || 'U').charAt(0).toUpperCase() }}</span>
+          </div>
+
+          <div class="comment-bubble">
+            <div class="comment-meta">
+              <span class="author-name">{{ comment.author?.username || 'Unknown' }}</span>
+              <span class="role-badge role-{{ (comment.author?.role || 'MEMBER').toLowerCase() }}">{{ comment.author?.role || 'MEMBER' }}</span>
+              <span class="comment-time">{{ formatDate(comment.createdAt) }}</span>
+
+              <button 
+                type="button" 
+                class="btn-delete-comment" 
+                (click)="deleteComment(comment.id)" 
+                title="Delete comment"
+                *ngIf="activeRole() !== 'VIEWER'">
+                ✕
+              </button>
+            </div>
+            
+            <div class="comment-content">
+              {{ comment.content }}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer / Input Form -->
+    <div class="comments-footer">
+      <div class="input-container" *ngIf="activeRole() !== 'VIEWER'">
+        <textarea 
+          class="comment-textarea" 
+          rows="2" 
+          placeholder="Write a comment or update..." 
+          [ngModel]="newCommentText()" 
+          (ngModelChange)="newCommentText.set($event)"
+          (keydown.control.enter)="postComment()">
+        </textarea>
+        <div class="input-actions">
+          <span class="hint">Press Ctrl+Enter to submit</span>
+          <button 
+            type="button" 
+            class="btn-post-comment" 
+            [disabled]="submitting() || !newCommentText().trim()" 
+            (click)="postComment()">
+            <span *ngIf="!submitting()">Post Comment</span>
+            <span *ngIf="submitting()">Posting...</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="viewer-notice" *ngIf="activeRole() === 'VIEWER'">
+        <span>👁️ You are viewing this task with the <strong>VIEWER</strong> role. Comment posting is restricted.</span>
+      </div>
+    </div>
+
+  </div>
+</div>

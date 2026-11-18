@@ -41,6 +41,22 @@ export interface Task {
   updatedAt: string;
   tags?: Tag[];
   dependsOnTaskIds?: string[];
+  commentCount?: number;
+}
+
+export interface TaskComment {
+  id: string;
+  taskId: string;
+  userId: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  author?: {
+    id: string;
+    username: string;
+    email: string;
+    role: UserRole;
+  };
 }
 
 export const CreateProjectSchema = z.object({
@@ -108,3 +124,13 @@ export const AddDependencySchema = z.object({
   message: 'dependsOnTaskId is required',
   path: ['dependsOnTaskId'],
 });
+
+export const CreateCommentSchema = z.object({
+  // Intentional edge case: doesn't use .trim() and has no max length validation
+  content: z.string().min(1, 'Comment content cannot be empty'),
+});
+
+export const UpdateCommentSchema = z.object({
+  content: z.string().min(1, 'Comment content cannot be empty'),
+});
+

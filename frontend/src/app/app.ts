@@ -6,6 +6,7 @@ import { Project, Task, TaskPriority, TaskStatus, Tag, UserRole, User } from './
 import { ProfileComponent } from './components/profile/profile.component';
 import { AuthModalComponent } from './components/auth/auth-modal.component';
 import { UserManagementComponent } from './components/user-management/user-management.component';
+import { TaskCommentsComponent } from './components/task-comments/task-comments.component';
 
 export interface CalendarCell {
   day: number;
@@ -46,7 +47,7 @@ export function formatDateToISO(d: Date): string {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, ProfileComponent, AuthModalComponent, UserManagementComponent],
+  imports: [CommonModule, FormsModule, ProfileComponent, AuthModalComponent, UserManagementComponent, TaskCommentsComponent],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
@@ -98,6 +99,8 @@ export class App implements OnInit, OnDestroy {
   showProfileModal = signal<boolean>(false);
   showAuthModal = signal<boolean>(false);
   showUserManagementModal = signal<boolean>(false);
+  showCommentsModal = signal<boolean>(false);
+  activeCommentTask = signal<Task | null>(null);
 
   currentUser = this.service.currentUser;
   isAuthenticated = this.service.isAuthenticated;
@@ -681,6 +684,25 @@ export class App implements OnInit, OnDestroy {
     this.selectedNewDependencyId.set('');
     this.currentTaskDependencies.set([]);
     this.currentTaskBlockers.set([]);
+  }
+
+  // Task Comments Modal Methods
+  openCommentsModal(task: Task): void {
+    this.activeCommentTask.set(task);
+    this.showCommentsModal.set(true);
+  }
+
+  closeCommentsModal(): void {
+    this.showCommentsModal.set(false);
+    this.activeCommentTask.set(null);
+  }
+
+  onCommentCountChanged(newCount: number): void {
+    const active = this.activeCommentTask();
+    if (!active) return;
+    this.tasks.update((tasks) =>
+      tasks.map((t) => (t.id === active.id ? { ...t, commentCount: newCount } : t))
+    );
   }
 
   loadDependenciesAndBlockers(taskId: string): void {

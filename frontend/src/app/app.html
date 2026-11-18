@@ -390,9 +390,12 @@
                   🔗 {{ task.dependsOnTaskIds.length }} Prereqs
                 </button>
               </div>
-              <div class="task-card-actions" *ngIf="canMutateTasks()">
-                <button class="btn-card-dep" (click)="$event.stopPropagation(); openDependencyModal(task)" draggable="false" title="Manage Dependencies & Blockers">🔗</button>
-                <button class="btn-card-del" (click)="deleteTask(task.id)" draggable="false" title="Delete task">✕</button>
+              <div class="task-card-actions">
+                <button type="button" class="btn-card-comment" (click)="$event.stopPropagation(); openCommentsModal(task)" draggable="false" [title]="'Discussion (' + (task.commentCount || 0) + ')'">
+                  💬<span class="card-comment-badge" *ngIf="task.commentCount">{{ task.commentCount }}</span>
+                </button>
+                <button *ngIf="canMutateTasks()" class="btn-card-dep" (click)="$event.stopPropagation(); openDependencyModal(task)" draggable="false" title="Manage Dependencies & Blockers">🔗</button>
+                <button *ngIf="canMutateTasks()" class="btn-card-del" (click)="deleteTask(task.id)" draggable="false" title="Delete task">✕</button>
               </div>
             </div>
             <h4 class="task-title" [innerHTML]="highlightSearchMatch(task.title)"></h4>
@@ -478,9 +481,12 @@
                   🔗 {{ task.dependsOnTaskIds.length }} Prereqs
                 </button>
               </div>
-              <div class="task-card-actions" *ngIf="canMutateTasks()">
-                <button class="btn-card-dep" (click)="$event.stopPropagation(); openDependencyModal(task)" draggable="false" title="Manage Dependencies & Blockers">🔗</button>
-                <button class="btn-card-del" (click)="deleteTask(task.id)" draggable="false" title="Delete task">✕</button>
+              <div class="task-card-actions">
+                <button type="button" class="btn-card-comment" (click)="$event.stopPropagation(); openCommentsModal(task)" draggable="false" [title]="'Discussion (' + (task.commentCount || 0) + ')'">
+                  💬<span class="card-comment-badge" *ngIf="task.commentCount">{{ task.commentCount }}</span>
+                </button>
+                <button *ngIf="canMutateTasks()" class="btn-card-dep" (click)="$event.stopPropagation(); openDependencyModal(task)" draggable="false" title="Manage Dependencies & Blockers">🔗</button>
+                <button *ngIf="canMutateTasks()" class="btn-card-del" (click)="deleteTask(task.id)" draggable="false" title="Delete task">✕</button>
               </div>
             </div>
             <h4 class="task-title" [innerHTML]="highlightSearchMatch(task.title)"></h4>
@@ -566,9 +572,12 @@
                   🔗 {{ task.dependsOnTaskIds.length }} Prereqs
                 </button>
               </div>
-              <div class="task-card-actions" *ngIf="canMutateTasks()">
-                <button class="btn-card-dep" (click)="$event.stopPropagation(); openDependencyModal(task)" draggable="false" title="Manage Dependencies & Blockers">🔗</button>
-                <button class="btn-card-del" (click)="deleteTask(task.id)" draggable="false" title="Delete task">✕</button>
+              <div class="task-card-actions">
+                <button type="button" class="btn-card-comment" (click)="$event.stopPropagation(); openCommentsModal(task)" draggable="false" [title]="'Discussion (' + (task.commentCount || 0) + ')'">
+                  💬<span class="card-comment-badge" *ngIf="task.commentCount">{{ task.commentCount }}</span>
+                </button>
+                <button *ngIf="canMutateTasks()" class="btn-card-dep" (click)="$event.stopPropagation(); openDependencyModal(task)" draggable="false" title="Manage Dependencies & Blockers">🔗</button>
+                <button *ngIf="canMutateTasks()" class="btn-card-del" (click)="deleteTask(task.id)" draggable="false" title="Delete task">✕</button>
               </div>
             </div>
             <h4 class="task-title" [innerHTML]="highlightSearchMatch(task.title)"></h4>
@@ -1090,4 +1099,12 @@
     (close)="closeUserManagementModal()"
     (roleChanged)="onUserRoleChanged($event)">
   </app-user-management>
+
+  <!-- Task Discussion & Comments Modal -->
+  <app-task-comments
+    *ngIf="showCommentsModal() && activeCommentTask()"
+    [task]="activeCommentTask()!"
+    (close)="closeCommentsModal()"
+    (commentCountChanged)="onCommentCountChanged($event)">
+  </app-task-comments>
 </div>
