@@ -79,20 +79,14 @@ export class TaskCommentsComponent implements OnInit, OnDestroy {
     this.submitting.set(true);
     this.errorMessage.set(null);
 
-    // NEW ANGULAR BUG: Nested RxJS Subscription Anti-Pattern (Pyramid of Doom)
-    // Subscribing inside the next callback of another subscription instead of using switchMap/concatMap
     this.service.createTaskComment(this.task.id, text).subscribe({
       next: (newComment) => {
         this.submitting.set(false);
         this.newCommentText.set('');
 
-        // Nested subscription anti-pattern
-        this.service.getTaskComments(this.task.id).subscribe({
-          next: (freshComments) => {
-            this.comments.set(freshComments);
-            this.commentCountChanged.emit(freshComments.length);
-          },
-        });
+        // Immutable signal update without nested subscriptions
+        this.comments.update((list) => [...list, newComment]);
+        this.commentCountChanged.emit(this.comments().length);
       },
       error: (err) => {
         this.submitting.set(false);
