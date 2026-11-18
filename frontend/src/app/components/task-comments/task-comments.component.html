@@ -56,7 +56,9 @@
             </div>
             
             <!-- Render rich comment content using innerHTML binding -->
-            <div class="comment-content" [innerHTML]="comment.content"></div>
+            <div class="comment-content">
+              {{ comment.content }}
+            </div>
           </div>
         </div>
       </div>
