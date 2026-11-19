@@ -45,6 +45,7 @@ export class TaskCommentsComponent implements OnInit, OnDestroy {
       clearInterval(this.pollTimer);
     }
   }
+  
 
   loadComments(): void {
     if (!this.task?.id) return;
