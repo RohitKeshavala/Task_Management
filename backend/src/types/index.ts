@@ -56,8 +56,6 @@ export interface TaskComment {
     username: string;
     email: string;
     role: UserRole;
-    passwordHash?: string;
-    salt?: string;
   };
 }
 
@@ -129,8 +127,6 @@ export const AddDependencySchema = z.object({
 
 export const CreateCommentSchema = z.object({
   content: z.string().trim().min(1, 'Comment content cannot be empty').max(1000, 'Comment content cannot exceed 1000 characters'),
-  // BUG #2: Allows client to specify authorId in payload (Mass Assignment / Identity Spoofing)
-  authorId: z.string().optional(),
 });
 
 export const UpdateCommentSchema = z.object({

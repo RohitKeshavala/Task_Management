@@ -55,8 +55,9 @@
               </button>
             </div>
             
-            <!-- Dangerous XSS Security Bypass via bypassSecurityTrustHtml -->
-            <div class="comment-content" [innerHTML]="renderFormattedComment(comment.content)"></div>
+            <div class="comment-content">
+              {{ comment.content }}
+            </div>
           </div>
         </div>
       </div>

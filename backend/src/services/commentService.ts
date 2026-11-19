@@ -25,9 +25,7 @@ export class CommentService {
         c.updatedAt,
         u.username AS authorUsername,
         u.email AS authorEmail,
-        u.role AS authorRole,
-        u.passwordHash AS authorPasswordHash,
-        u.salt AS authorSalt
+        u.role AS authorRole
       FROM task_comments c
       LEFT JOIN users u ON c.userId = u.id
       WHERE c.taskId = ?
@@ -42,8 +40,6 @@ export class CommentService {
       authorUsername: string | null;
       authorEmail: string | null;
       authorRole: UserRole | null;
-      authorPasswordHash: string | null;
-      authorSalt: string | null;
     }>;
 
     return rows.map((row) => ({
@@ -59,9 +55,6 @@ export class CommentService {
             username: row.authorUsername,
             email: row.authorEmail || '',
             role: row.authorRole || 'MEMBER',
-            // SENSITIVE DATA EXPOSURE: Password hash and cryptographic salt leaked in comment author object
-            passwordHash: row.authorPasswordHash || undefined,
-            salt: row.authorSalt || undefined,
           }
         : undefined,
     }));
