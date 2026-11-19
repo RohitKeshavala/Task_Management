@@ -27,6 +27,13 @@ yarn-error.log*
 .env.local
 .env.*.local
 
+# SQLite Databases
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+backend/taskflow.db
+
 # IDE & OS
 .vscode/
 .idea/

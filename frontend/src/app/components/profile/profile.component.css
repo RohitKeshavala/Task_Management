@@ -125,6 +125,21 @@
   font-size: 2rem;
 }
 
+.avatar-initials {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #3b82f6;
+  color: #ffffff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  letter-spacing: 0.05em;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
 .status-indicator-dot {
   position: absolute;
   bottom: 2px;
@@ -346,3 +361,191 @@
 .btn-primary-close:hover {
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
 }
+
+/* User Activity & Status Section */
+.user-activity-section {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 12px;
+  padding: 16px 24px;
+  background: rgba(15, 23, 42, 0.4);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.activity-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+
+.activity-card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.activity-icon {
+  font-size: 0.95rem;
+}
+
+.activity-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.live-pulse-badge {
+  margin-left: auto;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-rich-content {
+  font-size: 0.85rem;
+  color: #e2e8f0;
+  line-height: 1.4;
+}
+
+.status-highlight {
+  font-weight: 600;
+  color: #38bdf8;
+}
+
+/* Session Metric Card */
+.session-metric-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 12px 14px;
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+
+.metric-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.metric-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.metric-value {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #f1f5f9;
+}
+
+.font-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.metric-divider {
+  width: 1px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.metric-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #34d399;
+}
+
+.status-dot-pulse {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 8px #10b981;
+  animation: pulseDot 2s infinite;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+/* Workspace Governance Section */
+.workspace-governance-section {
+  padding: 12px 24px;
+  background: rgba(15, 23, 42, 0.5);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.governance-alert-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  border-radius: 10px;
+}
+
+.alert-icon {
+  font-size: 1.2rem;
+}
+
+.alert-content {
+  flex: 1;
+}
+
+.alert-heading {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #a5b4fc;
+}
+
+.alert-subtext {
+  margin: 2px 0 0;
+  font-size: 0.75rem;
+  color: #cbd5e1;
+}
+
+.btn-manage-governance {
+  padding: 6px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  background: #4f46e5;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-manage-governance:hover {
+  background: #4338ca;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+}
+
+@media (max-width: 600px) {
+  .user-activity-section {
+    grid-template-columns: 1fr;
+  }
+}
+

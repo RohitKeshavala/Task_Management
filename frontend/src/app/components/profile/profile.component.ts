@@ -1,5 +1,7 @@
-import { Component, input, output } from '@angular/core';
+import { Component, input, output, DestroyRef, inject, signal } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
+import { interval, switchMap, EMPTY } from 'rxjs';
 import { UserRole, User } from '../../models/taskflow.model';
 
 @Component({
@@ -10,6 +12,8 @@ import { UserRole, User } from '../../models/taskflow.model';
   styleUrls: ['./profile.component.css']
 })
 export class ProfileComponent {
+  private destroyRef = inject(DestroyRef);
+
   // Inputs
   isOpen = input<boolean>(false);
   activeRole = input<UserRole>('MEMBER');
@@ -18,10 +22,48 @@ export class ProfileComponent {
   // Outputs
   close = output<void>();
   logout = output<void>();
+  configureGovernance = output<void>();
+
+  // Real-time session elapsed counter tracked via reactive signal
+  readonly sessionSeconds = signal<number>(0);
+
+  // User status message and focus tagline (safe text properties)
+  statusHeadline = 'Active on Sprint Milestones';
+  statusMessage = 'Reviewing open PRs';
+
+  constructor() {
+    // Only tick when modal is actively open and reset timer to 0 on each modal opening
+    toObservable(this.isOpen)
+      .pipe(
+        switchMap(open => {
+          if (open) {
+            this.sessionSeconds.set(0);
+            return interval(1000);
+          }
+          return EMPTY;
+        }),
+        takeUntilDestroyed(this.destroyRef)
+      )
+      .subscribe(() => {
+        this.sessionSeconds.update(s => s + 1);
+      });
+  }
 
   get displayName(): string {
     return this.currentUser()?.username || 'Alex Mercer';
   }
+  
+
+  get userInitials(): string {
+    const parts = this.displayName.trim().split(/\s+/).filter(Boolean);
+    if (parts.length >= 2) {
+      const first = Array.from(parts[0])[0] || '';
+      const second = Array.from(parts[1])[0] || '';
+      return (first + second).toUpperCase();
+    }
+    return parts[0] ? Array.from(parts[0]).slice(0, 2).join('').toUpperCase() : 'U';
+  }
+
 
   get displayEmail(): string {
     return this.currentUser()?.email || 'alex.mercer@taskflow.dev';
@@ -35,6 +77,20 @@ export class ProfileComponent {
       });
     }
     return 'March 2024';
+  }
+
+
+  // Format session uptime into mm:ss display
+  get sessionDurationDisplay(): string {
+    const total = this.sessionSeconds();
+    const mins = Math.floor(total / 60);
+    const secs = total % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  }
+
+  // Permission check for configuring workspace settings and policies (Admin only)
+  get canManageWorkspaceSettings(): boolean {
+    return this.activeRole() === 'ADMIN';
   }
 
   get roleCapabilities(): string[] {

@@ -1074,7 +1074,8 @@
     [activeRole]="activeRole()" 
     [currentUser]="currentUser()"
     (close)="closeProfileModal()" 
-    (logout)="handleLogout()">
+    (logout)="handleLogout()"
+    (configureGovernance)="openUserManagementModal()">
   </app-profile>
 
   <!-- Auth Modal (Log In / Sign Up) -->
