@@ -14,6 +14,7 @@ import {
   AuthResponse,
   LoginDto,
   RegisterDto,
+  TaskComment,
 } from '../models/taskflow.model';
 
 @Injectable({
@@ -230,5 +231,22 @@ export class TaskFlowService {
 
   getTaskBlockers(taskId: string): Observable<Task[]> {
     return this.http.get<Task[]>(`${this.apiUrl}/tasks/${taskId}/blockers`);
+  }
+
+  // Task Comments
+  getTaskComments(taskId: string): Observable<TaskComment[]> {
+    return this.http.get<TaskComment[]>(`${this.apiUrl}/tasks/${taskId}/comments`);
+  }
+
+  createTaskComment(taskId: string, content: string): Observable<TaskComment> {
+    return this.http.post<TaskComment>(`${this.apiUrl}/tasks/${taskId}/comments`, { content });
+  }
+
+  updateTaskComment(commentId: string, content: string): Observable<TaskComment> {
+    return this.http.put<TaskComment>(`${this.apiUrl}/comments/${commentId}`, { content });
+  }
+
+  deleteTaskComment(commentId: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/comments/${commentId}`);
   }
 }

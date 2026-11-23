@@ -36,6 +36,30 @@ export interface Task {
   updatedAt: string;
   tags?: Tag[];
   dependsOnTaskIds?: string[];
+  commentCount?: number;
+}
+
+export interface TaskComment {
+  id: string;
+  taskId: string;
+  userId: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  author?: {
+    id: string;
+    username: string;
+    email: string;
+    role: UserRole;
+  };
+}
+
+export interface CreateCommentDto {
+  content: string;
+}
+
+export interface UpdateCommentDto {
+  content: string;
 }
 
 export interface TaskDependency {

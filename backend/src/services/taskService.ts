@@ -42,9 +42,16 @@ export class TaskService {
       const tagsByTaskId = TagService.getTagsForTasks(taskIds);
       const dependsOnMap = DependencyService.getBatchDependsOnTaskIds(taskIds);
 
+      const placeholders = taskIds.map(() => '?').join(',');
+      const commentCounts = db.prepare(`
+        SELECT taskId, COUNT(*) as count FROM task_comments WHERE taskId IN (${placeholders}) GROUP BY taskId
+      `).all(...taskIds) as { taskId: string; count: number }[];
+      const commentMap = new Map(commentCounts.map(c => [c.taskId, c.count]));
+
       for (const task of tasks) {
         task.tags = tagsByTaskId.get(task.id) || [];
         task.dependsOnTaskIds = dependsOnMap.get(task.id) || [];
+        task.commentCount = commentMap.get(task.id) || 0;
       }
     }
 
@@ -58,6 +65,8 @@ export class TaskService {
 
     task.tags = TagService.getTagsForTask(id);
     task.dependsOnTaskIds = DependencyService.getDependsOnTaskIds(id);
+    const commentCountRow = db.prepare('SELECT COUNT(*) as count FROM task_comments WHERE taskId = ?').get(id) as { count: number } | undefined;
+    task.commentCount = commentCountRow?.count || 0;
     return task;
   }
 

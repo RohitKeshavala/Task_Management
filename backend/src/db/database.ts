@@ -80,6 +80,17 @@ export function initDatabase(dbPath?: string): Database.Database {
       updatedAt TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS task_comments (
+      id TEXT PRIMARY KEY,
+      taskId TEXT NOT NULL,
+      userId TEXT NOT NULL,
+      content TEXT NOT NULL,
+      createdAt TEXT NOT NULL,
+      updatedAt TEXT NOT NULL,
+      FOREIGN KEY (taskId) REFERENCES tasks(id) ON DELETE CASCADE,
+      FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+    );
+
     CREATE UNIQUE INDEX IF NOT EXISTS idx_tags_name_unique ON tags(name COLLATE NOCASE);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username_unique ON users(username COLLATE NOCASE);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique ON users(email COLLATE NOCASE);
@@ -87,6 +98,8 @@ export function initDatabase(dbPath?: string): Database.Database {
     CREATE INDEX IF NOT EXISTS idx_task_tags_tagId ON task_tags(tagId);
     CREATE INDEX IF NOT EXISTS idx_task_dependencies_taskId ON task_dependencies(taskId);
     CREATE INDEX IF NOT EXISTS idx_task_dependencies_dependsOnTaskId ON task_dependencies(dependsOnTaskId);
+    CREATE INDEX IF NOT EXISTS idx_task_comments_taskId ON task_comments(taskId);
+    CREATE INDEX IF NOT EXISTS idx_task_comments_userId ON task_comments(userId);
   `);
 
   // Seed sample data if empty
@@ -105,6 +118,19 @@ export function initDatabase(dbPath?: string): Database.Database {
       INSERT INTO users (id, username, email, passwordHash, salt, role, createdAt, updatedAt)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `).run('user-admin-default', 'admin', 'admin@taskflow.dev', hash, salt, 'ADMIN', now, now);
+  }
+
+  // Seed default sample comments if comments table is empty
+  const commentCount = db.prepare('SELECT COUNT(*) as count FROM task_comments').get() as { count: number };
+  if (commentCount.count === 0 && filePath !== ':memory:') {
+    const demoTask = db.prepare('SELECT id FROM tasks WHERE id = ?').get('task-demo-1');
+    if (demoTask) {
+      const now = new Date().toISOString();
+      db.prepare(`
+        INSERT INTO task_comments (id, taskId, userId, content, createdAt, updatedAt)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run('comment-demo-1', 'task-demo-1', 'user-admin-default', 'Reviewing requirements and automated test pipelines.', now, now);
+    }
   }
 
   dbInstance = db;
