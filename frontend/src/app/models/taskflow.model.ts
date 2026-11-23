@@ -3,6 +3,8 @@ export const ALL_ROLES: readonly UserRole[] = ['ADMIN', 'MEMBER', 'VIEWER'] as c
 
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH';
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE';
+export type TaskSortField = '' | 'priority' | 'dueDate' | 'title';
+export type SortDirection = 'asc' | 'desc';
 
 export interface Tag {
   id: string;

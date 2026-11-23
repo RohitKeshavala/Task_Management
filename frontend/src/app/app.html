@@ -295,6 +295,44 @@
           </div>
         </div>
 
+        <!-- Elegant Vertical Separator -->
+        <div class="filter-divider" role="separator" aria-orientation="vertical"></div>
+
+        <!-- 4. Sort Filter Group -->
+        <div class="filter-group sort-filter-group" role="group" aria-label="Sort tasks">
+          <div class="filter-group-header">
+            <span class="filter-group-icon" aria-hidden="true">⇅</span>
+            <span class="filter-group-label">Sort:</span>
+          </div>
+          <div class="sort-controls-wrap">
+            <div class="sort-select-container">
+              <select 
+                id="task-sort-select" 
+                [value]="selectedSortField()" 
+                (change)="setSortField($any($event.target).value)"
+                class="sort-select-input"
+                aria-label="Sort tasks by field">
+                <option value="">Default</option>
+                <option value="priority">Priority</option>
+                <option value="dueDate">Due Date</option>
+                <option value="title">Title</option>
+              </select>
+              <span class="sort-select-caret">▾</span>
+            </div>
+
+            <button 
+              type="button" 
+              class="btn-sort-direction" 
+              *ngIf="selectedSortField()"
+              (click)="toggleSortDirection()" 
+              [attr.title]="'Current order: ' + (sortDirection() === 'asc' ? 'Ascending' : 'Descending') + '. Click to reverse.'"
+              [attr.aria-label]="'Sort direction: ' + (sortDirection() === 'asc' ? 'Ascending' : 'Descending')">
+              <span class="sort-dir-icon">{{ sortDirection() === 'asc' ? '↑' : '↓' }}</span>
+              <span class="sort-dir-label">{{ sortDirection() === 'asc' ? 'Asc' : 'Desc' }}</span>
+            </button>
+          </div>
+        </div>
+
       </div>
 
       <!-- Right: Active Filter Summary & Export Actions -->

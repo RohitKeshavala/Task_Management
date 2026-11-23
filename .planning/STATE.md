@@ -29,7 +29,13 @@ See: `.planning/PROJECT.md` (updated 2026-11-05 after Phase 1)
 Phase: 3 of 3 (User Authentication and Admin Role Management)
 Plan: 2/2 complete
 Status: All phases complete
-Last activity: 2026-11-05 — Phase 3 complete
+Last activity: 2026-11-23 — Quick task: Task Sorting & Order Controls
+
+### Quick Tasks Completed
+
+| Slug | Date | Status | Description |
+|------|------|--------|-------------|
+| `task-sorting-feature` | 2026-11-23 | complete ✓ | Kanban task sorting with 2 planted review bugs |
 
 ## Performance Metrics
 

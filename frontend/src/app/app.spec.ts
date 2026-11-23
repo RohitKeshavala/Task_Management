@@ -1388,5 +1388,39 @@ describe('App Component', () => {
       expect(fixture.nativeElement.querySelector('.task-card-actions')).toBeNull();
       expect(fixture.nativeElement.querySelector('.btn-action')).toBeNull();
     });
+
+    describe('Task Sorting and Order Controls', () => {
+      it('should initialize with no active sort field and ascending direction', () => {
+        expect(app.selectedSortField()).toBe('');
+        expect(app.sortDirection()).toBe('asc');
+      });
+
+      it('should sort tasks alphabetically by title when sort field is title', () => {
+        const taskA: Task = { ...sampleTodoTask, id: 't1', title: 'Bravo Task' };
+        const taskB: Task = { ...sampleTodoTask, id: 't2', title: 'Alpha Task' };
+        const taskC: Task = { ...sampleTodoTask, id: 't3', title: 'Charlie Task' };
+        app.tasks.set([taskA, taskB, taskC]);
+
+        app.setSortField('title');
+        const sortedAsc = app.todoTasks();
+        expect(sortedAsc.map(t => t.title)).toEqual(['Alpha Task', 'Bravo Task', 'Charlie Task']);
+
+        app.toggleSortDirection();
+        expect(app.sortDirection()).toBe('desc');
+        const sortedDesc = app.todoTasks();
+        expect(sortedDesc.map(t => t.title)).toEqual(['Charlie Task', 'Bravo Task', 'Alpha Task']);
+      });
+
+      it('should reset sort field and direction when clearAllFilters is called', () => {
+        app.setSortField('title');
+        app.toggleSortDirection();
+        expect(app.selectedSortField()).toBe('title');
+        expect(app.sortDirection()).toBe('desc');
+
+        app.clearAllFilters();
+        expect(app.selectedSortField()).toBe('');
+        expect(app.sortDirection()).toBe('asc');
+      });
+    });
   });
 });

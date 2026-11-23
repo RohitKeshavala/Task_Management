@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { TaskFlowService } from './services/taskflow.service';
-import { Project, Task, TaskPriority, TaskStatus, Tag, UserRole, User } from './models/taskflow.model';
+import { Project, Task, TaskPriority, TaskStatus, Tag, UserRole, User, TaskSortField, SortDirection } from './models/taskflow.model';
 import { ProfileComponent } from './components/profile/profile.component';
 import { AuthModalComponent } from './components/auth/auth-modal.component';
 import { UserManagementComponent } from './components/user-management/user-management.component';
@@ -71,11 +71,14 @@ export class App implements OnInit, OnDestroy {
   selectedTagFilter = signal<string>('');
   selectedPriorityFilter = signal<TaskPriority | ''>('');
   searchQuery = signal<string>('');
+  selectedSortField = signal<TaskSortField>('');
+  sortDirection = signal<SortDirection>('asc');
   activeFilterCount = computed<number>(() => {
     let count = 0;
     if (this.selectedPriorityFilter()) count++;
     if (this.selectedTagFilter()) count++;
     if (this.searchQuery().trim()) count++;
+    if (this.selectedSortField()) count++;
     return count;
   });
   loading = signal<boolean>(false);
@@ -229,16 +232,48 @@ export class App implements OnInit, OnDestroy {
     });
   });
 
+  // Sorted and filtered tasks applying selected sort field and direction
+  sortedTasks = computed(() => {
+    const list = [...this.filteredTasks()];
+    const field = this.selectedSortField();
+    if (!field) return list;
+
+    const modifier = this.sortDirection() === 'asc' ? 1 : -1;
+
+    return list.sort((a, b) => {
+      if (field === 'title') {
+        return (a.title || '').localeCompare(b.title || '') * modifier;
+      }
+
+      if (field === 'priority') {
+        // Alphabetically, 'HIGH' < 'LOW' < 'MEDIUM'.
+        // Descending sort unexpectedly yields MEDIUM -> LOW -> HIGH.
+        return a.priority.localeCompare(b.priority) * modifier;
+      }
+
+      if (field === 'dueDate') {
+        // new Date("").getTime() evaluates to NaN.
+        // (timeA - timeB) evaluates to NaN, violating strict weak ordering in Array.prototype.sort,
+        // resulting in unstable or corrupted task ordering.
+        const timeA = new Date(a.dueDate || '').getTime();
+        const timeB = new Date(b.dueDate || '').getTime();
+        return (timeA - timeB) * modifier;
+      }
+
+      return 0;
+    });
+  });
+
   todoTasks = computed(() => 
-    this.filteredTasks().filter(t => t.status === 'TODO')
+    this.sortedTasks().filter(t => t.status === 'TODO')
   );
 
   inProgressTasks = computed(() => 
-    this.filteredTasks().filter(t => t.status === 'IN_PROGRESS')
+    this.sortedTasks().filter(t => t.status === 'IN_PROGRESS')
   );
 
   doneTasks = computed(() => 
-    this.filteredTasks().filter(t => t.status === 'DONE')
+    this.sortedTasks().filter(t => t.status === 'DONE')
   );
 
   // Candidate prerequisites available when creating a new task
@@ -398,10 +433,20 @@ export class App implements OnInit, OnDestroy {
     this.loadTasks();
   }
 
+  setSortField(field: TaskSortField): void {
+    this.selectedSortField.set(field);
+  }
+
+  toggleSortDirection(): void {
+    this.sortDirection.update(dir => dir === 'asc' ? 'desc' : 'asc');
+  }
+
   clearAllFilters(): void {
     this.selectedPriorityFilter.set('');
     this.selectedTagFilter.set('');
     this.searchQuery.set('');
+    this.selectedSortField.set('');
+    this.sortDirection.set('asc');
     this.loadTasks();
   }
 
@@ -467,7 +512,7 @@ export class App implements OnInit, OnDestroy {
    * Exports filtered tasks to CSV format with cell escaping and formula neutralization.
    */
   exportTasksToCsv(): void {
-    const exportData = this.filteredTasks();
+    const exportData = this.sortedTasks();
     if (!exportData || exportData.length === 0) {
       this.showNotification({
         type: 'warning',
