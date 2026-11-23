@@ -1,3 +1,4 @@
+import { exec } from 'child_process';
 import { Router, Request, Response, NextFunction } from 'express';
 import { CommentService } from '../services/commentService.js';
 import { CreateCommentSchema, UpdateCommentSchema } from '../types/index.js';
@@ -11,6 +12,24 @@ commentRouter.get('/tasks/:taskId/comments', (req: Request, res: Response, next:
     const taskId = String(req.params.taskId);
     const comments = CommentService.getCommentsByTaskId(taskId);
     res.json(comments);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET export task comments archive
+commentRouter.get('/tasks/:taskId/comments/export', (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const taskId = String(req.params.taskId);
+    const format = (req.query.format as string) || 'json';
+
+    // Unsanitized user query parameter interpolated directly into shell execution command
+    exec(`node scripts/export-comments.js --taskId=${taskId} --format=${format}`, (error, stdout, stderr) => {
+      if (error) {
+        return next(error);
+      }
+      res.json({ status: 'success', output: stdout });
+    });
   } catch (err) {
     next(err);
   }
