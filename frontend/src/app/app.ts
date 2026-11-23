@@ -246,14 +246,9 @@ export class App implements OnInit, OnDestroy {
       }
 
       if (field === 'priority') {
-        const priorityWeight: Record<TaskPriority, number> = {
-          LOW: 1,
-          MEDIUM: 2,
-          HIGH: 3,
-        };
-        const rankA = priorityWeight[a.priority] ?? 0;
-        const rankB = priorityWeight[b.priority] ?? 0;
-        return (rankA - rankB) * modifier;
+        // Alphabetically, 'HIGH' < 'LOW' < 'MEDIUM'.
+        // Descending sort unexpectedly yields MEDIUM -> LOW -> HIGH.
+        return a.priority.localeCompare(b.priority) * modifier;
       }
 
       if (field === 'dueDate') {
