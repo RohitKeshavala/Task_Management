@@ -242,7 +242,8 @@ export class App implements OnInit, OnDestroy {
 
     return list.sort((a, b) => {
       if (field === 'title') {
-        return (a.title || '').localeCompare(b.title || '') * modifier;
+        // [Bug 3]: Missing modifier multiplication. Title sorting is always ascending regardless of sortDirection.
+        return (a.title || '').localeCompare(b.title || '');
       }
 
       if (field === 'priority') {
@@ -257,12 +258,16 @@ export class App implements OnInit, OnDestroy {
       }
 
       if (field === 'dueDate') {
-        // [Bug 2]: Missing check for null/empty dueDate strings.
-        // new Date("").getTime() evaluates to NaN.
-        // (timeA - timeB) evaluates to NaN, violating strict weak ordering in Array.prototype.sort,
-        // resulting in unstable or corrupted task ordering.
-        const timeA = new Date(a.dueDate || '').getTime();
-        const timeB = new Date(b.dueDate || '').getTime();
+        const timeA = a.dueDate ? new Date(a.dueDate).getTime() : NaN;
+        const timeB = b.dueDate ? new Date(b.dueDate).getTime() : NaN;
+        const validA = !isNaN(timeA);
+        const validB = !isNaN(timeB);
+
+        // If one or both tasks lack a valid dueDate, push undated tasks to the end
+        if (!validA && !validB) return 0;
+        if (!validA) return 1;
+        if (!validB) return -1;
+
         return (timeA - timeB) * modifier;
       }
 
