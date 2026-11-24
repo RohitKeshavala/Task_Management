@@ -242,19 +242,14 @@ export class App implements OnInit, OnDestroy {
 
     return list.sort((a, b) => {
       if (field === 'title') {
-        // [Bug 3]: Missing modifier multiplication. Title sorting is always ascending regardless of sortDirection.
-        return (a.title || '').localeCompare(b.title || '');
+        return (a.title || '').localeCompare(b.title || '') * modifier;
       }
 
       if (field === 'priority') {
-        const priorityWeight: Record<TaskPriority, number> = {
-          LOW: 1,
-          MEDIUM: 2,
-          HIGH: 3,
-        };
-        const rankA = priorityWeight[a.priority] ?? 0;
-        const rankB = priorityWeight[b.priority] ?? 0;
-        return (rankA - rankB) * modifier;
+        // [Bug 1]: Compares priority alphabetically instead of domain rank (HIGH > MEDIUM > LOW).
+        // Alphabetically, 'HIGH' < 'LOW' < 'MEDIUM'.
+        // Descending sort unexpectedly yields MEDIUM -> LOW -> HIGH.
+        return a.priority.localeCompare(b.priority) * modifier;
       }
 
       if (field === 'dueDate') {

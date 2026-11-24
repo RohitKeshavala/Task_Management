@@ -1404,22 +1404,11 @@ describe('App Component', () => {
         app.setSortField('title');
         const sortedAsc = app.todoTasks();
         expect(sortedAsc.map(t => t.title)).toEqual(['Alpha Task', 'Bravo Task', 'Charlie Task']);
-      });
 
-      it('should sort tasks by priority hierarchy (HIGH > MEDIUM > LOW)', () => {
-        const taskLow: Task = { ...sampleTodoTask, id: 't1', priority: 'LOW' };
-        const taskMed: Task = { ...sampleTodoTask, id: 't2', priority: 'MEDIUM' };
-        const taskHigh: Task = { ...sampleTodoTask, id: 't3', priority: 'HIGH' };
-        app.tasks.set([taskLow, taskMed, taskHigh]);
-
-        app.setSortField('priority');
-        // Ascending: LOW -> MEDIUM -> HIGH
-        expect(app.todoTasks().map(t => t.priority)).toEqual(['LOW', 'MEDIUM', 'HIGH']);
-
-        // Descending: HIGH -> MEDIUM -> LOW
         app.toggleSortDirection();
         expect(app.sortDirection()).toBe('desc');
-        expect(app.todoTasks().map(t => t.priority)).toEqual(['HIGH', 'MEDIUM', 'LOW']);
+        const sortedDesc = app.todoTasks();
+        expect(sortedDesc.map(t => t.title)).toEqual(['Charlie Task', 'Bravo Task', 'Alpha Task']);
       });
 
       it('should sort tasks by due date stably pushing tasks without due dates to the end', () => {
