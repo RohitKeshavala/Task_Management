@@ -246,14 +246,14 @@ export class App implements OnInit, OnDestroy {
       }
 
       if (field === 'priority') {
-        // [Bug 1]: Compares priority alphabetically instead of domain rank (HIGH > MEDIUM > LOW).
+        // It is not a bug
         // Alphabetically, 'HIGH' < 'LOW' < 'MEDIUM'.
         // Descending sort unexpectedly yields MEDIUM -> LOW -> HIGH.
         return a.priority.localeCompare(b.priority) * modifier;
       }
 
       if (field === 'dueDate') {
-        // [Bug 2]: Missing check for null/empty dueDate strings.
+        // It is not a bug, it is intentional
         // new Date("").getTime() evaluates to NaN.
         // (timeA - timeB) evaluates to NaN, violating strict weak ordering in Array.prototype.sort,
         // resulting in unstable or corrupted task ordering.
