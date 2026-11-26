@@ -1411,6 +1411,23 @@ describe('App Component', () => {
         expect(sortedDesc.map(t => t.title)).toEqual(['Charlie Task', 'Bravo Task', 'Alpha Task']);
       });
 
+      it('should sort tasks by priority hierarchy (HIGH > MEDIUM > LOW)', () => {
+        const lowTask: Task = { ...sampleTodoTask, id: 't-low', priority: 'LOW', title: 'Low Priority' };
+        const medTask: Task = { ...sampleTodoTask, id: 't-med', priority: 'MEDIUM', title: 'Med Priority' };
+        const highTask: Task = { ...sampleTodoTask, id: 't-high', priority: 'HIGH', title: 'High Priority' };
+        app.tasks.set([medTask, lowTask, highTask]);
+
+        app.setSortField('priority');
+        // asc: LOW -> MEDIUM -> HIGH
+        const sortedAsc = app.todoTasks();
+        expect(sortedAsc.map(t => t.priority)).toEqual(['LOW', 'MEDIUM', 'HIGH']);
+
+        // desc: HIGH -> MEDIUM -> LOW
+        app.toggleSortDirection();
+        const sortedDesc = app.todoTasks();
+        expect(sortedDesc.map(t => t.priority)).toEqual(['HIGH', 'MEDIUM', 'LOW']);
+      });
+
       it('should reset sort field and direction when clearAllFilters is called', () => {
         app.setSortField('title');
         app.toggleSortDirection();
