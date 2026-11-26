@@ -257,12 +257,16 @@ export class App implements OnInit, OnDestroy {
       }
 
       if (field === 'dueDate') {
-        // It is not a bug, it is intentional
-        // new Date("").getTime() evaluates to NaN.
-        // (timeA - timeB) evaluates to NaN, violating strict weak ordering in Array.prototype.sort,
-        // resulting in unstable or corrupted task ordering.
-        const timeA = new Date(a.dueDate || '').getTime();
-        const timeB = new Date(b.dueDate || '').getTime();
+        const timeA = a.dueDate ? new Date(a.dueDate).getTime() : NaN;
+        const timeB = b.dueDate ? new Date(b.dueDate).getTime() : NaN;
+        const validA = !isNaN(timeA);
+        const validB = !isNaN(timeB);
+
+        // If one or both tasks lack a valid dueDate, push undated tasks to the end
+        if (!validA && !validB) return 0;
+        if (!validA) return 1;
+        if (!validB) return -1;
+
         return (timeA - timeB) * modifier;
       }
 

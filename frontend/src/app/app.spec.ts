@@ -1428,6 +1428,22 @@ describe('App Component', () => {
         expect(sortedDesc.map(t => t.priority)).toEqual(['HIGH', 'MEDIUM', 'LOW']);
       });
 
+      it('should sort tasks by due date stably pushing tasks without due dates to the end', () => {
+        const taskNoDate: Task = { ...sampleTodoTask, id: 't1', title: 'Undated Task', dueDate: null };
+        const taskEarly: Task = { ...sampleTodoTask, id: 't2', title: 'Early Task', dueDate: '2026-11-20' };
+        const taskLate: Task = { ...sampleTodoTask, id: 't3', title: 'Late Task', dueDate: '2026-11-30' };
+        app.tasks.set([taskNoDate, taskLate, taskEarly]);
+
+        app.setSortField('dueDate');
+        // Ascending: Early -> Late -> Undated
+        expect(app.todoTasks().map(t => t.id)).toEqual(['t2', 't3', 't1']);
+
+        // Descending: Late -> Early -> Undated
+        app.toggleSortDirection();
+        expect(app.sortDirection()).toBe('desc');
+        expect(app.todoTasks().map(t => t.id)).toEqual(['t3', 't2', 't1']);
+      });
+
       it('should reset sort field and direction when clearAllFilters is called', () => {
         app.setSortField('title');
         app.toggleSortDirection();
