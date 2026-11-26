@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy, signal, computed, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { TaskFlowService } from './services/taskflow.service';
 import { Project, Task, TaskPriority, TaskStatus, Tag, UserRole, User, TaskSortField, SortDirection } from './models/taskflow.model';
 import { ProfileComponent } from './components/profile/profile.component';
@@ -52,6 +53,7 @@ export function formatDateToISO(d: Date): string {
 })
 export class App implements OnInit, OnDestroy {
   private service = inject(TaskFlowService);
+  private sanitizer = inject(DomSanitizer);
 
   // Active Role & Permission State
   activeRole = this.service.activeRole;
@@ -257,12 +259,16 @@ export class App implements OnInit, OnDestroy {
       }
 
       if (field === 'dueDate') {
-        // It is not a bug, it is intentional
-        // new Date("").getTime() evaluates to NaN.
-        // (timeA - timeB) evaluates to NaN, violating strict weak ordering in Array.prototype.sort,
-        // resulting in unstable or corrupted task ordering.
-        const timeA = new Date(a.dueDate || '').getTime();
-        const timeB = new Date(b.dueDate || '').getTime();
+        const timeA = a.dueDate ? new Date(a.dueDate).getTime() : NaN;
+        const timeB = b.dueDate ? new Date(b.dueDate).getTime() : NaN;
+        const validA = !isNaN(timeA);
+        const validB = !isNaN(timeB);
+
+        // If one or both tasks lack a valid dueDate, push undated tasks to the end
+        if (!validA && !validB) return 0;
+        if (!validA) return 1;
+        if (!validB) return -1;
+
         return (timeA - timeB) * modifier;
       }
 
@@ -479,22 +485,15 @@ export class App implements OnInit, OnDestroy {
    * 2. HTML-escapes all parts individually to prevent XSS and entity corruption.
    * 3. Wraps matched parts in <mark> tags.
    */
-  highlightSearchMatch(text: string): string {
+  highlightSearchMatch(text: string): SafeHtml | string {
     if (!text) return '';
     const query = this.searchQuery().trim();
-    if (!query) return this.escapeHtml(text);
+    if (!query) return this.sanitizer.bypassSecurityTrustHtml(text);
 
     const escapedQuery = query.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
     const regex = new RegExp(`(${escapedQuery})`, 'gi');
-    const parts = text.split(regex);
-
-    return parts
-      .map(part =>
-        part.toLowerCase() === query.toLowerCase()
-          ? `<mark class="search-highlight">${this.escapeHtml(part)}</mark>`
-          : this.escapeHtml(part)
-      )
-      .join('');
+    const html = text.replace(regex, '<mark class="search-highlight">$1</mark>');
+    return this.sanitizer.bypassSecurityTrustHtml(html);
   }
 
   /**
